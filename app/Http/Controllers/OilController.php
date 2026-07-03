@@ -131,8 +131,9 @@ class OilController extends Controller
         $kodeOptions = OilMasterData::getKodeDropdown(Auth::user()->office);
         $jenisOptions = OilMasterData::getJenisDropdown();
         $operatorOptions = $this->getOperatorOptionsByOffice(Auth::user()->office);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice(Auth::user()->office);
 
-        return view('oil.create', compact('kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('oil.create', compact('kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     /**
@@ -186,6 +187,7 @@ class OilController extends Controller
             'tanggal_sampel_mode2' => $mode2HasAnyValue ? 'required|date|before_or_equal:today' : 'nullable|date|before_or_equal:today',
             'mode1_rows.*.tanggal_sampel' => 'nullable|date|before_or_equal:today',
             'mode1_rows.*.jam_sampel' => 'nullable|date_format:H:i',
+            'mode1_rows.*.sampel_boy' => $this->getSampleBoyValidationRules(Auth::user()->office),
             'mode2_rows.*.tanggal_sampel' => 'nullable|date|before_or_equal:today',
             'mode2_rows.*.jam_sampel' => 'nullable|date_format:H:i',
         ], [
@@ -202,6 +204,8 @@ class OilController extends Controller
             'tanggal_sampel_mode1.before_or_equal' => 'Tanggal Sampel tidak boleh melebihi hari ini.',
             'tanggal_sampel_mode2.before_or_equal' => 'Tanggal Sampel tidak boleh melebihi hari ini.',
             'mode1_rows.*.tanggal_sampel.before_or_equal' => 'Tanggal Sampel pada Mode Non-Angka tambahan tidak boleh melebihi hari ini.',
+            'mode1_rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'mode1_rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'mode2_rows.*.tanggal_sampel.before_or_equal' => 'Tanggal Sampel pada Mode Angka tambahan tidak boleh melebihi hari ini.',
         ]);
 
@@ -350,6 +354,7 @@ class OilController extends Controller
         foreach ($mode1Rows as $row) {
             $kode = trim((string) ($row['kode'] ?? ''));
             $operator = trim((string) ($row['operator'] ?? ''));
+            $sampelBoy = trim((string) ($row['sampel_boy'] ?? ''));
 
             if ($kode === '' && $operator === '') {
                 continue;
@@ -359,11 +364,15 @@ class OilController extends Controller
                 throw new Exception('Untuk data tambahan Mode Non-Angka, Kode dan Operator wajib diisi bersamaan.');
             }
 
+            if (!empty($this->getSampleBoyOptionsByOffice($userOffice)) && $sampelBoy === '') {
+                throw new Exception('Untuk data tambahan Mode Non-Angka, Sampel Boy wajib dipilih.');
+            }
+
             $payload = [
                 'kode' => $kode,
                 'jenis' => $row['jenis'] ?? 'TBS',
                 'operator' => $operator,
-                'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
+                'sampel_boy' => $sampelBoy !== '' ? $sampelBoy : Auth::user()->name,
                 'parameter_lain' => $row['parameter_lain'] ?? null,
                 'tanggal_sampel' => $row['tanggal_sampel'] ?? $defaultMode1Date,
                 'jam_sampel' => $row['jam_sampel'] ?? null,
@@ -543,12 +552,14 @@ class OilController extends Controller
         $kodeOptions = OilMasterData::getKodeDropdown(Auth::user()->office);
         $jenisOptions = OilMasterData::getJenisDropdown();
         $operatorOptions = $this->getOperatorOptionsByOffice($oilCalculation->office);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($oilCalculation->office);
 
         return view('oil.edit', [
             'oilLoss' => $oilCalculation,
             'kodeOptions' => $kodeOptions,
             'jenisOptions' => $jenisOptions,
             'operatorOptions' => $operatorOptions,
+            'sampleBoyOptions' => $sampleBoyOptions,
         ]);
     }
 
@@ -567,7 +578,7 @@ class OilController extends Controller
             'kode' => 'nullable|string|exists:oil_master_data,kode',
             'jenis' => 'nullable|string',
             'operator' => $this->getOperatorValidationRules($oilCalculation->office),
-            'sampel_boy' => 'nullable|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($oilCalculation->office),
             'tanggal_sampel' => 'required|date|before_or_equal:today',
             // Mode 2: Numeric fields
             'cawan_kosong' => 'required|numeric|min:0',
@@ -577,6 +588,8 @@ class OilController extends Controller
             'oil_labu' => 'required|numeric|min:0',
         ], [
             'tanggal_sampel.before_or_equal' => 'Tanggal Sampel tidak boleh melebihi hari ini.',
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         try {
@@ -765,8 +778,9 @@ class OilController extends Controller
         $kodeOptions = OilMasterData::getKodeDropdown(Auth::user()->office);
         $jenisOptions = OilMasterData::getJenisDropdown();
         $operatorOptions = $this->getOperatorOptionsByOffice($oilRecord->office);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($oilRecord->office);
 
-        return view('oil.edit-record', compact('oilRecord', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('oil.edit-record', compact('oilRecord', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     /**
@@ -782,7 +796,7 @@ class OilController extends Controller
             'kode' => 'required|string|exists:oil_master_data,kode',
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($oilRecord->office, true),
-            'sampel_boy' => 'nullable|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($oilRecord->office),
             'tanggal_sampel' => 'required|date|before_or_equal:today',
         ], [
             'kode.required' => 'Kode wajib diisi',
@@ -790,6 +804,8 @@ class OilController extends Controller
             'jenis.required' => 'Jenis wajib diisi',
             'operator.required' => 'Operator wajib diisi',
             'operator.in' => 'Operator tidak sesuai dengan daftar office.',
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'tanggal_sampel.before_or_equal' => 'Tanggal Sampel tidak boleh melebihi hari ini.',
         ]);
 
@@ -1670,6 +1686,17 @@ class OilController extends Controller
         return config('operator-options.oil.' . $office, []);
     }
 
+    private function getSampleBoyOptionsByOffice(?string $office): array
+    {
+        if (!$office) {
+            return [];
+        }
+
+        $officeCode = strtoupper(trim((string) $office));
+
+        return config('operator-options.sample_boy.' . $officeCode, []);
+    }
+
     /**
      * Build validation rules for operator by office.
      */
@@ -1680,6 +1707,20 @@ class OilController extends Controller
 
         if (!empty($operatorOptions)) {
             $rules[] = Rule::in($operatorOptions);
+        }
+
+        return $rules;
+    }
+
+    private function getSampleBoyValidationRules(?string $office): array
+    {
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($office);
+        $required = !empty($sampleBoyOptions);
+
+        $rules = [$required ? 'required' : 'nullable', 'string', 'max:255'];
+
+        if (!empty($sampleBoyOptions)) {
+            $rules[] = Rule::in($sampleBoyOptions);
         }
 
         return $rules;

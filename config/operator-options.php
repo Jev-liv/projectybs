@@ -1082,4 +1082,23 @@ return [
         ],
         'SJN' => [],
     ],
+    'sample_boy' => [
+        'YBS' => [
+            'Aprianda Tarigan',
+            'Andriansyah Lubis',
+            'Pengarepen perangin-angin',
+            'Wahyu Rizki Maulana',
+            'Vega Prayoga',
+            'Dodi Irwan Sahputra Butar-butar',
+            'Ringki Napola',
+            'RAHMAT HIDAYAT',
+            'PATRISIUS CHARLOS SITUMORANG',
+            'OLOAN S.M. SIMANJUNTAK',
+            'ELIZER YOSUA',
+            'DENNY SAPITRA',
+            'ARYA GAUTAMA S.'
+        ],
+        'SUN' => [],
+        'SJN' => [],
+    ],
 ];

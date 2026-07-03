@@ -174,7 +174,7 @@
                             </label>
                             @if(!empty($operatorOptions))
                                 <select name="operator" id="operator" class="w-full select2-operator
-                                                @error('operator') border-red-400 bg-red-50 @enderror">
+                                                    @error('operator') border-red-400 bg-red-50 @enderror">
                                     <option value="">-- Pilih Operator --</option>
                                     @foreach($operatorOptions as $operatorName)
                                         <option value="{{ $operatorName }}" {{ old('operator', $relatedRecord?->operator) == $operatorName ? 'selected' : '' }}>
@@ -189,7 +189,7 @@
                                 <input type="text" name="operator" id="operator"
                                     value="{{ old('operator', $relatedRecord?->operator) }}" placeholder="Nama operator"
                                     class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500
-                                                       @error('operator') border-red-400 bg-red-50 @enderror">
+                                                           @error('operator') border-red-400 bg-red-50 @enderror">
                                 <p class="mt-1 text-xs text-gray-500">Dropdown operator belum tersedia untuk office
                                     {{ $oilLoss->office ?? '-' }}.
                                 </p>
@@ -203,10 +203,22 @@
                             <label for="sampel_boy" class="block text-sm font-medium text-gray-700 mb-2">
                                 Sampel Boy
                             </label>
-                            <input type="text" name="sampel_boy" id="sampel_boy"
-                                value="{{ old('sampel_boy', $relatedRecord?->sampel_boy) }}"
-                                placeholder="Nama sampel boy" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500
-                                       @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                            @if(!empty($sampleBoyOptions))
+                                <select name="sampel_boy" id="sampel_boy" class="w-full select2-sampel-boy
+                                                   @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                                    <option value="">-- Pilih Sampel Boy --</option>
+                                    @foreach($sampleBoyOptions as $sampleBoyName)
+                                        <option value="{{ $sampleBoyName }}" {{ old('sampel_boy', $relatedRecord?->sampel_boy) == $sampleBoyName ? 'selected' : '' }}>
+                                            {{ $sampleBoyName }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            @else
+                                <input type="text" name="sampel_boy" id="sampel_boy"
+                                    value="{{ old('sampel_boy', $relatedRecord?->sampel_boy) }}"
+                                    placeholder="Nama sampel boy" class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500
+                                               @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                            @endif
                             @error('sampel_boy')
                                 <p class="mt-1 text-xs text-red-600">{{ $message }}</p>
                             @enderror
@@ -355,6 +367,21 @@
 
             $('.select2-operator').select2({
                 placeholder: '-- Pilih Operator --',
+                allowClear: true,
+                width: '100%',
+                theme: 'default',
+                language: {
+                    noResults: function () {
+                        return "Tidak ditemukan";
+                    },
+                    searching: function () {
+                        return "Mencari...";
+                    }
+                }
+            });
+
+            $('.select2-sampel-boy').select2({
+                placeholder: '-- Pilih Sampel Boy --',
                 allowClear: true,
                 width: '100%',
                 theme: 'default',

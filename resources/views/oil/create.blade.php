@@ -88,7 +88,8 @@
             @if($isYbsOffice)
                 <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
                     <div class="text-sm text-indigo-900 font-semibold mb-1">Tanggal dan jam diisi manual per kartu.</div>
-                    <div class="text-sm text-indigo-800">Silakan lengkapi tanggal sampel dan jam sampel di kartu yang dipakai.</div>
+                    <div class="text-sm text-indigo-800">Silakan lengkapi tanggal sampel dan jam sampel di kartu yang
+                        dipakai.</div>
                 </div>
             @endif
 
@@ -185,9 +186,21 @@
                                 <label class="block text-xs font-medium text-gray-700 mb-1.5">
                                     Sampel Boy
                                 </label>
-                                <input type="text" name="mode1_rows[{{ $rowIndex }}][sampel_boy]"
-                                    value="{{ Auth::user()->name }}" readonly
-                                    class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                                @if(!empty($sampleBoyOptions))
+                                    <select name="mode1_rows[{{ $rowIndex }}][sampel_boy]"
+                                        class="select2-sampel-boy mode1-user-field w-full rounded-lg border border-gray-300 px-3 py-2 text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <option value="">-- Pilih Sampel Boy --</option>
+                                        @foreach($sampleBoyOptions as $sampleBoyName)
+                                            <option value="{{ $sampleBoyName }}" {{ ($oldMode1Rows[$rowIndex]['sampel_boy'] ?? '') == $sampleBoyName ? 'selected' : '' }}>
+                                                {{ $sampleBoyName }}
+                                            </option>
+                                        @endforeach
+                                    </select>
+                                @else
+                                    <input type="text" name="mode1_rows[{{ $rowIndex }}][sampel_boy]"
+                                        value="{{ Auth::user()->name }}" readonly
+                                        class="w-full rounded-lg border border-gray-300 bg-gray-100 px-3 py-2 text-sm text-gray-600">
+                                @endif
                             </div>
                         </div>
                     @endforeach
@@ -361,6 +374,22 @@
             // Initialize Select2 for Operator dropdown
             $('.select2-operator').select2({
                 placeholder: '-- Pilih Operator --',
+                allowClear: true,
+                width: '100%',
+                theme: 'default',
+                minimumInputLength: 0,
+                language: {
+                    noResults: function () {
+                        return "Tidak ditemukan";
+                    },
+                    searching: function () {
+                        return "Mencari...";
+                    }
+                }
+            });
+
+            $('.select2-sampel-boy').select2({
+                placeholder: '-- Pilih Sampel Boy --',
                 allowClear: true,
                 width: '100%',
                 theme: 'default',

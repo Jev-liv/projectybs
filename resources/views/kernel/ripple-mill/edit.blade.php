@@ -50,9 +50,20 @@
                 <div>
                     <label for="sampel_boy" class="block text-sm font-medium text-gray-700 mb-2">Sampel Boy <span
                             class="text-red-500">*</span></label>
-                    <input type="text" name="sampel_boy" id="sampel_boy"
-                        value="{{ old('sampel_boy', $kernelRippleMill->sampel_boy) }}"
-                        class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                    @if(!empty($sampleBoyOptions))
+                        <select name="sampel_boy" id="sampel_boy"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                            <option value="">-- Pilih Sampel Boy --</option>
+                            @foreach($sampleBoyOptions as $sampleBoyName)
+                                <option value="{{ $sampleBoyName }}" {{ old('sampel_boy', $kernelRippleMill->sampel_boy) == $sampleBoyName ? 'selected' : '' }}>{{ $sampleBoyName }}
+                                </option>
+                            @endforeach
+                        </select>
+                    @else
+                        <input type="text" name="sampel_boy" id="sampel_boy"
+                            value="{{ old('sampel_boy', $kernelRippleMill->sampel_boy) }}"
+                            class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('sampel_boy') border-red-400 bg-red-50 @enderror">
+                    @endif
                     @error('sampel_boy')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                 </div>
                 <div>

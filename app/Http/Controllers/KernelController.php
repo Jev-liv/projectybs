@@ -135,8 +135,9 @@ class KernelController extends Controller
             ->toArray();
 
         $operatorOptions = $this->getOperatorOptionsByOffice($userOffice, 'kernel');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
 
-        return view('kernel.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions'));
+        return view('kernel.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function store(Request $request)
@@ -167,6 +168,7 @@ class KernelController extends Controller
             'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.jenis' => 'nullable|string',
             'rows.*.operator' => $this->getOperatorValidationRules($userOffice, false, 'kernel'),
+            'rows.*.sampel_boy' => $this->getSampleBoyValidationRules($userOffice),
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
             'rows.*.berat_sampel' => 'nullable|numeric|gt:0',
@@ -182,6 +184,8 @@ class KernelController extends Controller
             'rows.required' => 'Data sampel belum tersedia.',
             'rows.*.kode.required' => 'Kode tidak boleh kosong.',
             'rows.*.kode.in' => 'Kode tidak valid untuk input Kernel Losses.',
+            'rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'rows.*.berat_sampel.gt' => 'Berat Sampel harus lebih dari 0.',
         ]);
 
@@ -192,11 +196,11 @@ class KernelController extends Controller
             ]);
         }
 
-                $roundedTime = $this->resolveKernelSampleTimestamp(
-                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-                    $isKegiatanDispek || $userOffice === 'YBS'
-                );
+        $roundedTime = $this->resolveKernelSampleTimestamp(
+            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+            $isKegiatanDispek || $userOffice === 'YBS'
+        );
         $numericFields = [
             'berat_sampel',
             'nut_utuh_nut',
@@ -294,7 +298,7 @@ class KernelController extends Controller
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
                     'operator' => $row['operator'] ?? null,
-                    'sampel_boy' => Auth::user()->name,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
                     'pengulangan' => $isPengulangan,
                     'remarks' => $row['remarks'] ?? null,
                     'berat_sampel' => $beratSampel,
@@ -388,8 +392,9 @@ class KernelController extends Controller
         $kodeOptions = $this->getKernelLossesKodeOptions($kernelCalculation->office);
         $jenisOptions = KernelRecord::getJenisOptions();
         $operatorOptions = $this->getOperatorOptionsByOffice($kernelCalculation->office, 'kernel');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($kernelCalculation->office);
 
-        return view('kernel.edit', compact('kernelCalculation', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('kernel.edit', compact('kernelCalculation', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function update(Request $request, KernelCalculation $kernelCalculation)
@@ -402,7 +407,7 @@ class KernelController extends Controller
             'kode' => ['required', 'string', Rule::in(array_keys($this->getKernelLossesKodeOptions($kernelCalculation->office)))],
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelCalculation->office, true, 'kernel'),
-            'sampel_boy' => 'required|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($kernelCalculation->office),
             'berat_sampel' => 'required|numeric|min:0',
             'nut_utuh_nut' => 'required|numeric|min:0',
             'nut_utuh_kernel' => 'required|numeric|min:0',
@@ -410,6 +415,9 @@ class KernelController extends Controller
             'nut_pecah_kernel' => 'required|numeric|min:0',
             'kernel_utuh' => 'required|numeric|min:0',
             'kernel_pecah' => 'required|numeric|min:0',
+        ], [
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         $beratSampel = $validated['berat_sampel'];
@@ -510,8 +518,9 @@ class KernelController extends Controller
         $jenisOptions = KernelRecord::getJenisOptions();
         $kernelLimitMap = $this->getDirtMoistLimitMap($userOffice);
         $operatorOptions = $this->getOperatorOptionsByOffice($userOffice, 'dirt_moist');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
 
-        return view('kernel.dirt-moist.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions'));
+        return view('kernel.dirt-moist.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function dirtMoistStore(Request $request)
@@ -542,6 +551,7 @@ class KernelController extends Controller
             'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.jenis' => 'nullable|string',
             'rows.*.operator' => $this->getOperatorValidationRules($userOffice, false, 'dirt_moist'),
+            'rows.*.sampel_boy' => $this->getSampleBoyValidationRules($userOffice),
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
             'rows.*.berat_sampel' => 'nullable|numeric|gt:0',
@@ -552,6 +562,8 @@ class KernelController extends Controller
             'rows.*.kode.required' => 'Kode tidak boleh kosong.',
             'rows.*.kode.in' => 'Kode Dirt & Moist tidak valid.',
             'rows.*.operator.in' => 'Operator tidak sesuai dengan daftar office.',
+            'rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
             'rows.*.berat_sampel.gt' => 'Berat sampel harus lebih dari 0.',
         ]);
@@ -563,11 +575,11 @@ class KernelController extends Controller
             ]);
         }
 
-                $roundedTime = $this->resolveKernelSampleTimestamp(
-                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-                    $isKegiatanDispek || $userOffice === 'YBS'
-                );
+        $roundedTime = $this->resolveKernelSampleTimestamp(
+            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+            $isKegiatanDispek || $userOffice === 'YBS'
+        );
         $rowsToSave = [];
 
         foreach (($validated['rows'] ?? []) as $row) {
@@ -669,7 +681,7 @@ class KernelController extends Controller
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
                     'operator' => $row['operator'] ?? null,
-                    'sampel_boy' => Auth::user()->name,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
                     'pengulangan' => $isPengulangan,
                     'remarks' => $row['remarks'] ?? null,
                     'berat_sampel' => $beratSampel,
@@ -729,8 +741,9 @@ class KernelController extends Controller
         $kodeOptions = $this->getDirtMoistKodeOptions($dirtMoistCalculation->office);
         $jenisOptions = KernelRecord::getJenisOptions();
         $operatorOptions = $this->getOperatorOptionsByOffice($dirtMoistCalculation->office, 'dirt_moist');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($dirtMoistCalculation->office);
 
-        return view('kernel.dirt-moist.edit', compact('dirtMoistCalculation', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('kernel.dirt-moist.edit', compact('dirtMoistCalculation', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function dirtMoistUpdate(Request $request, KernelDirtMoistCalculation $dirtMoistCalculation)
@@ -743,10 +756,13 @@ class KernelController extends Controller
             'kode' => ['required', 'string', Rule::in(array_keys($this->getDirtMoistKodeOptions($dirtMoistCalculation->office)))],
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($dirtMoistCalculation->office, true, 'dirt_moist'),
-            'sampel_boy' => 'nullable|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($dirtMoistCalculation->office),
             'berat_sampel' => 'required|numeric|gt:0',
             'berat_dirty' => 'required|numeric|min:0',
             'moist_percent' => 'nullable|numeric|min:0',
+        ], [
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         $dirtyToSampel = round(($validated['berat_dirty'] / $validated['berat_sampel']) * 100, 6);
@@ -872,8 +888,9 @@ class KernelController extends Controller
         $jenisOptions = KernelRecord::getJenisOptions();
         $kernelLimitMap = $this->getQwtLimitMap($userOffice);
         $operatorOptions = $this->getOperatorOptionsByOffice($userOffice, 'qwt');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
 
-        return view('kernel.qwt.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions'));
+        return view('kernel.qwt.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function qwtStore(Request $request)
@@ -904,6 +921,7 @@ class KernelController extends Controller
             'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.jenis' => 'nullable|string',
             'rows.*.operator' => $this->getOperatorValidationRules($userOffice, false, 'qwt'),
+            'rows.*.sampel_boy' => $this->getSampleBoyValidationRules($userOffice),
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
             'rows.*.sampel_setelah_kuarter' => 'nullable|numeric|gt:0',
@@ -920,6 +938,8 @@ class KernelController extends Controller
             'rows.*.kode.required' => 'Kode tidak boleh kosong.',
             'rows.*.kode.in' => 'Kode QWT tidak valid.',
             'rows.*.operator.in' => 'Operator tidak sesuai dengan daftar office.',
+            'rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
             'rows.*.sampel_setelah_kuarter.gt' => 'Sampel setelah kuarter harus lebih dari 0.',
         ]);
@@ -931,11 +951,11 @@ class KernelController extends Controller
             ]);
         }
 
-                $roundedTime = $this->resolveKernelSampleTimestamp(
-                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-                    $isKegiatanDispek || $userOffice === 'YBS'
-                );
+        $roundedTime = $this->resolveKernelSampleTimestamp(
+            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+            $isKegiatanDispek || $userOffice === 'YBS'
+        );
         $requiredFields = [
             'sampel_setelah_kuarter',
             'berat_nut_utuh',
@@ -1051,7 +1071,7 @@ class KernelController extends Controller
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
                     'operator' => $row['operator'] ?? null,
-                    'sampel_boy' => Auth::user()->name,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
                     'pengulangan' => $isPengulangan,
                     'remarks' => $row['remarks'] ?? null,
                     'sampel_setelah_kuarter' => $sampelSetelahKuarter,
@@ -1120,8 +1140,9 @@ class KernelController extends Controller
         $kodeOptions = $this->getQwtKodeOptions($kernelQwt->office);
         $jenisOptions = KernelRecord::getJenisOptions();
         $operatorOptions = $this->getOperatorOptionsByOffice($kernelQwt->office, 'qwt');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($kernelQwt->office);
 
-        return view('kernel.qwt.edit', compact('kernelQwt', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('kernel.qwt.edit', compact('kernelQwt', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function qwtUpdate(Request $request, KernelQwt $kernelQwt)
@@ -1134,7 +1155,7 @@ class KernelController extends Controller
             'kode' => ['required', 'string', Rule::in(array_keys($this->getQwtKodeOptions($kernelQwt->office)))],
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelQwt->office, true, 'qwt'),
-            'sampel_boy' => 'required|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($kernelQwt->office),
             'sampel_setelah_kuarter' => 'required|numeric|gt:0',
             'berat_nut_utuh' => 'required|numeric|min:0',
             'berat_nut_pecah' => 'required|numeric|min:0',
@@ -1144,6 +1165,9 @@ class KernelController extends Controller
             'berat_batu' => 'required|numeric|min:0',
             'ampere_screw' => 'required|numeric|min:0',
             'tekanan_hydraulic' => 'required|numeric|min:0',
+        ], [
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         $totalBeratNut = round(
@@ -1279,8 +1303,9 @@ class KernelController extends Controller
         $jenisOptions = KernelRecord::getJenisOptions();
         $kernelLimitMap = $this->getRippleMillLimitMap($userOffice);
         $operatorOptions = $this->getOperatorOptionsByOffice($userOffice, 'ripple_mill');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
 
-        return view('kernel.ripple-mill.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions'));
+        return view('kernel.ripple-mill.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function rippleMillStore(Request $request)
@@ -1311,6 +1336,7 @@ class KernelController extends Controller
             'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.jenis' => 'nullable|string',
             'rows.*.operator' => $this->getOperatorValidationRules($userOffice, false, 'ripple_mill'),
+            'rows.*.sampel_boy' => $this->getSampleBoyValidationRules($userOffice),
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
             'rows.*.berat_sampel' => 'nullable|numeric|gt:0',
@@ -1321,6 +1347,8 @@ class KernelController extends Controller
             'rows.*.kode.required' => 'Kode tidak boleh kosong.',
             'rows.*.kode.in' => 'Kode Ripple Mill tidak valid.',
             'rows.*.operator.in' => 'Operator tidak sesuai dengan daftar office.',
+            'rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
             'rows.*.berat_sampel.gt' => 'Berat Sample harus lebih dari 0.',
         ]);
@@ -1332,11 +1360,11 @@ class KernelController extends Controller
             ]);
         }
 
-                $roundedTime = $this->resolveKernelSampleTimestamp(
-                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-                    $isKegiatanDispek || $userOffice === 'YBS'
-                );
+        $roundedTime = $this->resolveKernelSampleTimestamp(
+            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+            $isKegiatanDispek || $userOffice === 'YBS'
+        );
         $requiredFields = ['berat_sampel', 'berat_nut_utuh', 'berat_nut_pecah'];
         $rowsToSave = [];
 
@@ -1429,7 +1457,7 @@ class KernelController extends Controller
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
                     'operator' => $row['operator'] ?? null,
-                    'sampel_boy' => Auth::user()->name,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
                     'pengulangan' => $isPengulangan,
                     'remarks' => $row['remarks'] ?? null,
                     'berat_sampel' => $beratSampel,
@@ -1489,8 +1517,9 @@ class KernelController extends Controller
         $kodeOptions = $this->getRippleMillKodeOptions($kernelRippleMill->office);
         $jenisOptions = KernelRecord::getJenisOptions();
         $operatorOptions = $this->getOperatorOptionsByOffice($kernelRippleMill->office, 'ripple_mill');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($kernelRippleMill->office);
 
-        return view('kernel.ripple-mill.edit', compact('kernelRippleMill', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('kernel.ripple-mill.edit', compact('kernelRippleMill', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function rippleMillUpdate(Request $request, KernelRippleMill $kernelRippleMill)
@@ -1503,10 +1532,13 @@ class KernelController extends Controller
             'kode' => ['required', 'string', Rule::in(array_keys($this->getRippleMillKodeOptions($kernelRippleMill->office)))],
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelRippleMill->office, true, 'ripple_mill'),
-            'sampel_boy' => 'required|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($kernelRippleMill->office),
             'berat_sampel' => 'required|numeric|gt:0',
             'berat_nut_utuh' => 'required|numeric|min:0',
             'berat_nut_pecah' => 'required|numeric|min:0',
+        ], [
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         $beratSampel = (float) $validated['berat_sampel'];
@@ -1619,8 +1651,9 @@ class KernelController extends Controller
         $jenisOptions = KernelRecord::getJenisOptions();
         $kernelLimitMap = $this->getDestonerLimitMap($userOffice);
         $operatorOptions = $this->getOperatorOptionsByOffice($userOffice, 'destoner');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
 
-        return view('kernel.destoner.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions'));
+        return view('kernel.destoner.create', compact('kodeOptions', 'kodeFormGroups', 'jenisOptions', 'kernelLimitMap', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function destonerStore(Request $request)
@@ -1651,6 +1684,7 @@ class KernelController extends Controller
             'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.jenis' => 'nullable|string',
             'rows.*.operator' => $this->getOperatorValidationRules($userOffice, false, 'destoner'),
+            'rows.*.sampel_boy' => $this->getSampleBoyValidationRules($userOffice),
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
             'rows.*.berat_sampel' => 'nullable|numeric|gt:0',
@@ -1662,6 +1696,8 @@ class KernelController extends Controller
             'rows.*.kode.required' => 'Kode tidak boleh kosong.',
             'rows.*.kode.in' => 'Kode Destoner tidak valid.',
             'rows.*.operator.in' => 'Operator tidak sesuai dengan daftar office.',
+            'rows.*.sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'rows.*.sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
             'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
             'rows.*.berat_sampel.gt' => 'Berat Sampel harus lebih dari 0.',
             'rows.*.time.gt' => 'Time harus lebih dari 0.',
@@ -1674,11 +1710,11 @@ class KernelController extends Controller
             ]);
         }
 
-                $roundedTime = $this->resolveKernelSampleTimestamp(
-                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-                    $isKegiatanDispek || $userOffice === 'YBS'
-                );
+        $roundedTime = $this->resolveKernelSampleTimestamp(
+            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+            $isKegiatanDispek || $userOffice === 'YBS'
+        );
         $requiredFields = ['operator', 'berat_sampel', 'time', 'berat_nut', 'berat_kernel'];
         $rowsToSave = [];
 
@@ -1771,7 +1807,7 @@ class KernelController extends Controller
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
                     'operator' => $row['operator'],
-                    'sampel_boy' => Auth::user()->name,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
                     'pengulangan' => $isPengulangan,
                     'remarks' => $row['remarks'] ?? null,
                     'berat_sampel' => $beratSampel,
@@ -1836,8 +1872,9 @@ class KernelController extends Controller
         $kodeOptions = $this->getDestonerKodeOptions($kernelDestoner->office);
         $jenisOptions = KernelRecord::getJenisOptions();
         $operatorOptions = $this->getOperatorOptionsByOffice($kernelDestoner->office, 'destoner');
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($kernelDestoner->office);
 
-        return view('kernel.destoner.edit', compact('kernelDestoner', 'kodeOptions', 'jenisOptions', 'operatorOptions'));
+        return view('kernel.destoner.edit', compact('kernelDestoner', 'kodeOptions', 'jenisOptions', 'operatorOptions', 'sampleBoyOptions'));
     }
 
     public function destonerUpdate(Request $request, KernelDestoner $kernelDestoner)
@@ -1850,11 +1887,14 @@ class KernelController extends Controller
             'kode' => ['required', 'string', Rule::in(array_keys($this->getDestonerKodeOptions($kernelDestoner->office)))],
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelDestoner->office, true, 'destoner'),
-            'sampel_boy' => 'required|string|max:255',
+            'sampel_boy' => $this->getSampleBoyValidationRules($kernelDestoner->office),
             'berat_sampel' => 'required|numeric|gt:0',
             'time' => 'required|numeric|gt:0',
             'berat_nut' => 'required|numeric|min:0',
             'berat_kernel' => 'required|numeric|min:0',
+        ], [
+            'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
+            'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
         ]);
 
         $beratSampel = (float) $validated['berat_sampel'];
@@ -3131,6 +3171,17 @@ class KernelController extends Controller
         return config('operator-options.' . $module . '.' . $office, []);
     }
 
+    private function getSampleBoyOptionsByOffice(?string $office): array
+    {
+        if (!$office) {
+            return [];
+        }
+
+        $officeCode = strtoupper(trim((string) $office));
+
+        return config('operator-options.sample_boy.' . $officeCode, []);
+    }
+
     private function getOperatorValidationRules(?string $office, bool $required = false, string $module = 'kernel'): array
     {
         $rules = [$required ? 'required' : 'nullable', 'string', 'max:255'];
@@ -3138,6 +3189,20 @@ class KernelController extends Controller
 
         if (!empty($operatorOptions)) {
             $rules[] = Rule::in($operatorOptions);
+        }
+
+        return $rules;
+    }
+
+    private function getSampleBoyValidationRules(?string $office): array
+    {
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($office);
+        $required = !empty($sampleBoyOptions);
+
+        $rules = [$required ? 'required' : 'nullable', 'string', 'max:255'];
+
+        if (!empty($sampleBoyOptions)) {
+            $rules[] = Rule::in($sampleBoyOptions);
         }
 
         return $rules;
