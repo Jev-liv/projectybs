@@ -1892,6 +1892,112 @@ class ProcessController extends Controller
         return $hours * 60 + $minutes;
     }
 
+    private function roundTimeToHalfHourString(string $time): string
+    {
+        $value = trim($time);
+        if (!preg_match('/^\d{2}:\d{2}$/', $value)) {
+            return now()->format('H:i');
+        }
+
+        [$hour, $minute] = array_map('intval', explode(':', $value));
+
+        return sprintf('%02d:%02d', $hour, $minute < 30 ? 0 : 30);
+    }
+
+    private function normalizeHalfHourTime(?string $time, ?string $fallback = null): string
+    {
+        $value = trim((string) $time);
+
+        if ($value === '') {
+            $value = $fallback ?? now()->format('H:i');
+        }
+
+        return $this->roundTimeToHalfHourString($value);
+    }
+
+    private function getProcessWindowsForDate(string $office, string $date, string $source = 'kernel'): array
+    {
+        $windows = [];
+        $query = $source === 'spintest'
+            ? SpintestProsses::query()->with('mesin')
+            : KernelProsses::query()->with('mesin');
+
+        $processRows = $query
+            ->where('office', $office)
+            ->whereDate('process_date', $date)
+            ->get();
+
+        foreach ($processRows as $processRow) {
+            foreach (['1', '2'] as $teamSuffix) {
+                $startField = 'team_' . $teamSuffix . '_start_time';
+                $endField = 'team_' . $teamSuffix . '_end_time';
+                $startLabel = substr((string) ($processRow->{$startField} ?? ''), 0, 5);
+                $endLabel = substr((string) ($processRow->{$endField} ?? ''), 0, 5);
+
+                $startMinutes = $this->timeToMinutes($startLabel);
+                $endMinutes = $this->timeToMinutes($endLabel);
+
+                if ($startLabel !== '' && $endLabel !== '' && $startLabel !== '00:00' && $endLabel !== '00:00' && $startMinutes < $endMinutes) {
+                    $windows[] = [
+                        'start' => $startMinutes,
+                        'end' => $endMinutes,
+                        'label' => $startLabel . '-' . $endLabel,
+                    ];
+                }
+            }
+
+            foreach ($processRow->mesin as $machine) {
+                $startLabel = substr((string) ($machine->production_start_time ?? ''), 0, 5);
+                $endLabel = substr((string) ($machine->production_end_time ?? ''), 0, 5);
+                $startMinutes = $this->timeToMinutes($startLabel);
+                $endMinutes = $this->timeToMinutes($endLabel);
+
+                if ($startLabel === '' || $endLabel === '' || $startLabel === '00:00' || $endLabel === '00:00') {
+                    continue;
+                }
+
+                $windows[] = [
+                    'start' => $startMinutes,
+                    'end' => $endMinutes,
+                    'label' => $startLabel . '-' . $endLabel,
+                ];
+            }
+        }
+
+        return $windows;
+    }
+
+    private function assertYbsProcessTimeMatches(string $office, string $date, string $time, string $moduleName, string $source = 'kernel'): void
+    {
+        $windows = $this->getProcessWindowsForDate($office, $date, $source);
+
+        if (empty($windows)) {
+            throw ValidationException::withMessages([
+                'tanggal' => "Warning: Informasi proses mesin untuk tanggal {$date} office {$office} belum tersedia. Input {$moduleName} belum bisa disimpan.",
+            ]);
+        }
+
+        $normalizedTime = $this->normalizeHalfHourTime($time);
+        $currentMinutes = $this->timeToMinutes($normalizedTime);
+
+        foreach ($windows as $window) {
+            if ($this->isHourWithinRange($currentMinutes, (int) $window['start'], (int) $window['end'])) {
+                return;
+            }
+        }
+
+        $availableWindows = collect($windows)
+            ->pluck('label')
+            ->filter()
+            ->unique()
+            ->values()
+            ->implode(', ');
+
+        throw ValidationException::withMessages([
+            'jam' => "Warning: Jam saat submit ({$normalizedTime}) di luar jam mesin hidup untuk {$moduleName}. Jam yang diizinkan: {$availableWindows}.",
+        ]);
+    }
+
     private function collectSpintestAnalysisEntries(Builder $query, string $moduleGroup, string $moduleName, string $timeField, Carbon $startDate, Carbon $endDate, ?string $officeScope, ?callable $detailResolver = null): Collection
     {
         return $query
@@ -4454,8 +4560,10 @@ class ProcessController extends Controller
         if ($request->boolean('bulk_submit')) {
             $userId = auth()->id();
             $createdBy = (string) (auth()->user()->name ?? 'System');
+            $office = $this->resolveCurrentOffice();
+            $isYbsOffice = $office === 'YBS';
 
-            return DB::transaction(function () use ($request, $userId, $createdBy) {
+            return DB::transaction(function () use ($request, $userId, $createdBy, $office, $isYbsOffice) {
                 $validated = $request->validate([
                     'ffa.tanggal' => ['nullable', 'date'],
                     'ffa.jam' => ['nullable', 'date_format:H:i'],
@@ -4503,12 +4611,19 @@ class ProcessController extends Controller
                 $savedCount = 0;
 
                 if ($this->hasAnyMeaningfulValue($validated['ffa'] ?? [])) {
+                    $ffaDate = $validated['ffa']['tanggal'] ?? now()->toDateString();
+                    $ffaJam = $this->normalizeHalfHourTime($validated['ffa']['jam'] ?? null, now()->format('H:i'));
+
+                    if ($isYbsOffice) {
+                        $this->assertYbsProcessTimeMatches($office, $ffaDate, $ffaJam, 'Analisa FFA dan Moisture', 'spintest');
+                    }
+
                     FfaMoisture::create([
                         'user_id' => $userId,
                         'created_by' => $createdBy,
-                        'office' => $this->resolveCurrentOffice(),
-                        'tanggal' => $validated['ffa']['tanggal'] ?? now()->toDateString(),
-                        'jam' => $validated['ffa']['jam'] ?? now()->format('H:i'),
+                        'office' => $office,
+                        'tanggal' => $ffaDate,
+                        'jam' => $ffaJam,
                         'moisture' => $this->stringOrDefault($validated['ffa']['moisture'] ?? null, '0'),
                         'bst1_ffa' => $this->numericOrZero($validated['ffa']['bst1_ffa'] ?? null),
                         'bst2_ffa' => $this->numericOrZero($validated['ffa']['bst2_ffa'] ?? null),
@@ -4519,12 +4634,19 @@ class ProcessController extends Controller
                 }
 
                 if ($this->hasAnyMeaningfulValue($validated['cot'] ?? [])) {
+                    $cotDate = $validated['cot']['tanggal'] ?? now()->toDateString();
+                    $cotJam = $this->normalizeHalfHourTime($validated['cot']['jam'] ?? null, now()->format('H:i'));
+
+                    if ($isYbsOffice) {
+                        $this->assertYbsProcessTimeMatches($office, $cotDate, $cotJam, 'Analisa Spintest COT', 'spintest');
+                    }
+
                     SpintestCot::create([
                         'user_id' => $userId,
                         'created_by' => $createdBy,
-                        'office' => $this->resolveCurrentOffice(),
-                        'tanggal' => $validated['cot']['tanggal'] ?? now()->toDateString(),
-                        'jam' => $validated['cot']['jam'] ?? now()->format('H:i'),
+                        'office' => $office,
+                        'tanggal' => $cotDate,
+                        'jam' => $cotJam,
                         'oil' => $this->numericOrZero($validated['cot']['oil'] ?? null),
                         'emulsi' => $this->numericOrZero($validated['cot']['emulsi'] ?? null),
                         'air' => $this->numericOrZero($validated['cot']['air'] ?? null),
@@ -4538,12 +4660,19 @@ class ProcessController extends Controller
                         continue;
                     }
 
+                    $rowDate = $row['tanggal'] ?? now()->toDateString();
+                    $rowJam = $this->normalizeHalfHourTime($row['jam'] ?? null, now()->format('H:i'));
+
+                    if ($isYbsOffice) {
+                        $this->assertYbsProcessTimeMatches($office, $rowDate, $rowJam, 'Analisa Spintest Underflow CST', 'spintest');
+                    }
+
                     SpintestCst::create([
                         'user_id' => $userId,
                         'created_by' => $createdBy,
-                        'office' => $this->resolveCurrentOffice(),
-                        'tanggal' => $row['tanggal'] ?? now()->toDateString(),
-                        'jam' => $row['jam'] ?? now()->format('H:i'),
+                        'office' => $office,
+                        'tanggal' => $rowDate,
+                        'jam' => $rowJam,
                         'machine_name' => $row['machine_name'] ?? $this->getCstMachinesForOffice()[0],
                         'oil' => $this->numericOrZero($row['oil'] ?? null),
                         'emulsi' => $this->numericOrZero($row['emulsi'] ?? null),
@@ -4558,12 +4687,19 @@ class ProcessController extends Controller
                         continue;
                     }
 
+                    $rowDate = $row['tanggal'] ?? now()->toDateString();
+                    $rowJam = $this->normalizeHalfHourTime($row['jam'] ?? null, now()->format('H:i'));
+
+                    if ($isYbsOffice) {
+                        $this->assertYbsProcessTimeMatches($office, $rowDate, $rowJam, 'Analisa Spintest Feed Decanter', 'spintest');
+                    }
+
                     SpintestFeedDecanter::create([
                         'user_id' => $userId,
                         'created_by' => $createdBy,
-                        'office' => $this->resolveCurrentOffice(),
-                        'tanggal' => $row['tanggal'] ?? now()->toDateString(),
-                        'jam' => $row['jam'] ?? now()->format('H:i'),
+                        'office' => $office,
+                        'tanggal' => $rowDate,
+                        'jam' => $rowJam,
                         'machine_name' => $row['machine_name'] ?? $this->getDecanterMachinesForOffice()[0],
                         'oil' => $this->numericOrZero($row['oil'] ?? null),
                         'emulsi' => $this->numericOrZero($row['emulsi'] ?? null),
@@ -4578,12 +4714,19 @@ class ProcessController extends Controller
                         continue;
                     }
 
+                    $rowDate = $row['tanggal'] ?? now()->toDateString();
+                    $rowJam = $this->normalizeHalfHourTime($row['jam'] ?? null, now()->format('H:i'));
+
+                    if ($isYbsOffice) {
+                        $this->assertYbsProcessTimeMatches($office, $rowDate, $rowJam, 'Analisa Spintest Light Phase', 'spintest');
+                    }
+
                     SpintestLightPhase::create([
                         'user_id' => $userId,
                         'created_by' => $createdBy,
-                        'office' => $this->resolveCurrentOffice(),
-                        'tanggal' => $row['tanggal'] ?? now()->toDateString(),
-                        'jam' => $row['jam'] ?? now()->format('H:i'),
+                        'office' => $office,
+                        'tanggal' => $rowDate,
+                        'jam' => $rowJam,
                         'machine_name' => $row['machine_name'] ?? $this->getLightPhaseMachinesForOffice()[0],
                         'oil' => $this->numericOrZero($row['oil'] ?? null),
                         'emulsi' => $this->numericOrZero($row['emulsi'] ?? null),
@@ -5505,8 +5648,10 @@ class ProcessController extends Controller
         $savedCount = 0;
         $userId = auth()->id();
         $createdBy = (string) (auth()->user()->name ?? 'System');
+        $office = $this->resolveCurrentOffice();
+        $isYbsOffice = $office === 'YBS';
 
-        DB::transaction(function () use ($validated, $userId, $createdBy, &$savedCount) {
+        DB::transaction(function () use ($validated, $userId, $createdBy, &$savedCount, $office, $isYbsOffice) {
             foreach ($this->getUsbRowNumbersForOffice() as $index) {
                 $row = $validated['rows'][$index] ?? [];
 
@@ -5517,13 +5662,19 @@ class ProcessController extends Controller
                 $diamati = $this->numericOrZero($row['diamati_jlh_janjang'] ?? null);
                 $lolos = $this->numericOrZero($row['lolos_jlh_janjang'] ?? null);
                 $persenUsb = $diamati > 0 ? round(($lolos / $diamati) * 100, 2) : 0;
+                $tanggal = $row['tanggal'] ?? now()->toDateString();
+                $jam = $this->normalizeHalfHourTime($row['jam'] ?? null, now()->format('H:i'));
+
+                if ($isYbsOffice) {
+                    $this->assertYbsProcessTimeMatches($office, $tanggal, $jam, 'Lap Jangkos USB', 'kernel');
+                }
 
                 AnalisaUsb::create([
                     'user_id' => $userId,
                     'created_by' => $createdBy,
-                    'office' => $this->resolveCurrentOffice(),
-                    'tanggal' => $row['tanggal'] ?? now()->toDateString(),
-                    'jam' => $row['jam'] ?? now()->format('H:i'),
+                    'office' => $office,
+                    'tanggal' => $tanggal,
+                    'jam' => $jam,
                     'shift' => (int) ($row['shift'] ?? 1),
                     'no_rebusan' => $index,
                     'diamati_jlh_janjang' => $diamati,
@@ -5882,10 +6033,12 @@ class ProcessController extends Controller
         $savedCount = 0;
         $userId = auth()->id();
         $createdBy = (string) (auth()->user()->name ?? 'System');
+        $office = $this->resolveCurrentOffice();
+        $isYbsOffice = $office === 'YBS';
 
         $defaultOperator = $this->resolveOilFossOperator($operatorOptions);
 
-        DB::transaction(function () use ($validated, $definitions, $userId, $createdBy, $defaultOperator, &$savedCount) {
+        DB::transaction(function () use ($validated, $definitions, $userId, $createdBy, $defaultOperator, &$savedCount, $office, $isYbsOffice) {
             foreach ($validated['rows'] as $rowKey => $row) {
                 if (!$definitions->has($rowKey)) {
                     continue;
@@ -5911,6 +6064,13 @@ class ProcessController extends Controller
                     continue;
                 }
 
+                $tanggal = $row['tanggal'] ?? now()->toDateString();
+                $waktu = $this->normalizeHalfHourTime($row['waktu'] ?? null, now()->format('H:i'));
+
+                if ($isYbsOffice) {
+                    $this->assertYbsProcessTimeMatches($office, $tanggal, $waktu, 'Oil Loss Foss', 'kernel');
+                }
+
                 $definition = $definitions->get($rowKey);
                 $operator = trim((string) ($row['operator'] ?? $defaultOperator));
                 if ($operator === '') {
@@ -5920,9 +6080,9 @@ class ProcessController extends Controller
                 OilFoss::create([
                     'user_id' => $userId,
                     'created_by' => $createdBy,
-                    'office' => $this->resolveCurrentOffice(),
-                    'tanggal' => $row['tanggal'] ?? now()->toDateString(),
-                    'waktu' => $row['waktu'] ?? now()->format('H:i'),
+                    'office' => $office,
+                    'tanggal' => $tanggal,
+                    'waktu' => $waktu,
                     'operator' => $operator,
                     'shift' => (int) ($row['shift'] ?? 1),
                     'machine_group' => $definition['group'],

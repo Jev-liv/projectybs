@@ -187,7 +187,9 @@ class OilController extends Controller
             'tanggal_sampel_mode2' => $mode2HasAnyValue ? 'required|date|before_or_equal:today' : 'nullable|date|before_or_equal:today',
             'mode1_rows.*.tanggal_sampel' => 'nullable|date|before_or_equal:today',
             'mode1_rows.*.jam_sampel' => 'nullable|date_format:H:i',
-            'mode1_rows.*.sampel_boy' => $this->getSampleBoyValidationRules(Auth::user()->office),
+            'mode1_rows.*.sampel_boy' => Auth::user()->office === 'YBS'
+                ? $this->getSampleBoyValidationRules(Auth::user()->office, false)
+                : $this->getSampleBoyValidationRules(Auth::user()->office),
             'mode2_rows.*.tanggal_sampel' => 'nullable|date|before_or_equal:today',
             'mode2_rows.*.jam_sampel' => 'nullable|date_format:H:i',
         ], [
@@ -364,7 +366,7 @@ class OilController extends Controller
                 throw new Exception('Untuk data tambahan Mode Non-Angka, Kode dan Operator wajib diisi bersamaan.');
             }
 
-            if (!empty($this->getSampleBoyOptionsByOffice($userOffice)) && $sampelBoy === '') {
+            if ($userOffice === 'YBS' && !empty($this->getSampleBoyOptionsByOffice($userOffice)) && $sampelBoy === '') {
                 throw new Exception('Untuk data tambahan Mode Non-Angka, Sampel Boy wajib dipilih.');
             }
 
@@ -1712,14 +1714,13 @@ class OilController extends Controller
         return $rules;
     }
 
-    private function getSampleBoyValidationRules(?string $office): array
+    private function getSampleBoyValidationRules(?string $office, bool $required = true): array
     {
         $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($office);
-        $required = !empty($sampleBoyOptions);
 
         $rules = [$required ? 'required' : 'nullable', 'string', 'max:255'];
 
-        if (!empty($sampleBoyOptions)) {
+        if ($required && !empty($sampleBoyOptions)) {
             $rules[] = Rule::in($sampleBoyOptions);
         }
 

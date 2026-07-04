@@ -44,6 +44,53 @@ Menyertakan sidebar navigasi dan topbar.
 
     </div>
 
+    @if (auth()->user()?->office === 'YBS' && request()->routeIs('kernel.*', 'analisa-moisture.*', 'lap-jangkos.*', 'oil-loss-foss.*', 'process.*'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                function roundToHalfHour(value) {
+                    if (!value) {
+                        return value;
+                    }
+
+                    const parts = value.split(':');
+                    if (parts.length < 2) {
+                        return value;
+                    }
+
+                    const hour = parseInt(parts[0], 10);
+                    const minute = parseInt(parts[1], 10);
+                    if (Number.isNaN(hour) || Number.isNaN(minute)) {
+                        return value;
+                    }
+
+                    const roundedMinute = minute < 30 ? 0 : 30;
+                    return String(hour).padStart(2, '0') + ':' + String(roundedMinute).padStart(2, '0');
+                }
+
+                function normalizeTimeInput(input) {
+                    if (!input || !input.value || !/^\d{2}:\d{2}$/.test(input.value)) {
+                        return;
+                    }
+
+                    const rounded = roundToHalfHour(input.value);
+                    if (rounded !== input.value) {
+                        input.value = rounded;
+                    }
+                }
+
+                document.querySelectorAll('input[type="time"]').forEach(function (input) {
+                    normalizeTimeInput(input);
+                    input.addEventListener('change', function () {
+                        normalizeTimeInput(input);
+                    });
+                    input.addEventListener('blur', function () {
+                        normalizeTimeInput(input);
+                    });
+                });
+            });
+        </script>
+    @endif
+
     {{-- Auto Flash Messages dengan SweetAlert Toast --}}
     <script>
         function lockFormSubmission(form, submitter = null) {
