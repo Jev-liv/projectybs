@@ -160,7 +160,7 @@ class KernelController extends Controller
 
         $kodeOptions = $this->getKernelLossesKodeOptions($userOffice);
         $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
-        $sampleBoyRequired = !empty($sampleBoyOptions);
+        $sampleBoyRequired = $userOffice === 'YBS' && !empty($sampleBoyOptions);
 
         $validated = $request->validate([
             'kegiatan_dispek' => 'nullable|boolean',
@@ -562,6 +562,8 @@ class KernelController extends Controller
         }
 
         $kodeOptions = $this->getDirtMoistKodeOptions($userOffice);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
+        $sampleBoyRequired = $userOffice === 'YBS' && !empty($sampleBoyOptions);
 
         $validated = $request->validate([
             'kegiatan_dispek' => 'nullable|boolean',
@@ -949,6 +951,8 @@ class KernelController extends Controller
         }
 
         $kodeOptions = $this->getQwtKodeOptions($userOffice);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
+        $sampleBoyRequired = $userOffice === 'YBS' && !empty($sampleBoyOptions);
 
         $validated = $request->validate([
             'kegiatan_dispek' => 'nullable|boolean',
@@ -1382,6 +1386,8 @@ class KernelController extends Controller
         }
 
         $kodeOptions = $this->getRippleMillKodeOptions($userOffice);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
+        $sampleBoyRequired = $userOffice === 'YBS' && !empty($sampleBoyOptions);
 
         $validated = $request->validate([
             'kegiatan_dispek' => 'nullable|boolean',
@@ -1748,6 +1754,8 @@ class KernelController extends Controller
         }
 
         $kodeOptions = $this->getDestonerKodeOptions($userOffice);
+        $sampleBoyOptions = $this->getSampleBoyOptionsByOffice($userOffice);
+        $sampleBoyRequired = $userOffice === 'YBS' && !empty($sampleBoyOptions);
 
         $validated = $request->validate([
             'kegiatan_dispek' => 'nullable|boolean',

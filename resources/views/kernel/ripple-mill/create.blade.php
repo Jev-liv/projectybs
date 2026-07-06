@@ -127,7 +127,7 @@
                             3 => 'md:grid-cols-3 lg:grid-cols-3',
                             4 => 'md:grid-cols-2 lg:grid-cols-4',
                             5 => 'md:grid-cols-2 xl:grid-cols-5',
-                            7 => 'md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7',
+                            7 => 'md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-4',
                             default => 'md:grid-cols-2',
                         };
                     @endphp

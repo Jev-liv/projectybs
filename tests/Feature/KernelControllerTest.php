@@ -53,7 +53,10 @@ class KernelControllerTest extends TestCase
     {
         KernelMasterData::create([
             'office' => 'YBS',
-            'kode' => 'K1',
+            'kode' => 'FC1',
+            'nama_sample' => 'Sample FC1',
+            'limit_operator' => 'le',
+            'limit_value' => 100,
             'column_name' => 'col1',
             'jenis' => 'TBS',
             'is_active' => true,
@@ -61,35 +64,69 @@ class KernelControllerTest extends TestCase
 
         $payload = [
             'tanggal_sampel' => now()->format('Y-m-d'),
-            'tanggal_sampel_mode1' => now()->format('Y-m-d'),
-            'tanggal_sampel_mode2' => now()->format('Y-m-d'),
-            'kode' => 'K1',
-            'operator' => 'Test Operator',
-            'jenis' => 'TBS',
-            'sampel_boy' => 'Boy 1',
-            'kode_mode2' => 'K1',
-            'cawan_kosong' => 10,
-            'berat_basah' => 20,
-            'cawan_sample_kering' => 25,
-            'labu_kosong' => 5,
-            'oil_labu' => 8,
-            'berat_kotor_kering' => 30,
-            'berat_kotor_basah' => 40,
-            'cangkang_non_kalsium' => 50,
-            'kotoran' => 10,
+            'rounded_time' => '10:30',
+            'rows' => [[
+                'kode' => 'FC1',
+                'tanggal_sampel' => now()->format('Y-m-d'),
+                'rounded_time' => '10:30',
+                'jenis' => 'TBS',
+                'operator' => 'DONI SAPUTRA',
+                'sampel_boy' => 'Aprianda Tarigan',
+                'berat_sampel' => 10,
+                'nut_utuh_nut' => 1,
+                'nut_utuh_kernel' => 1,
+                'nut_pecah_nut' => 1,
+                'nut_pecah_kernel' => 1,
+                'kernel_utuh' => 1,
+                'kernel_pecah' => 1,
+            ]],
         ];
 
         $response = $this->actingAs($this->user)->post(route('kernel.store'), $payload);
 
         $response->assertRedirect(route('kernel.index'));
         $this->assertDatabaseHas('kernel_calculations', [
-            'kode' => 'K1',
+            'kode' => 'FC1',
         ]);
         
         $this->assertDatabaseHas('kernel_records', [
-            'kode' => 'K1',
+            'kode' => 'FC1',
             'sampel_boy' => 'Boy 1',
             'jenis' => 'TBS'
         ]);
+    }
+
+    public function test_dirt_moist_store_accepts_valid_payload()
+    {
+        KernelMasterData::create([
+            'office' => 'YBS',
+            'kode' => 'CWS',
+            'nama_sample' => 'Sample CWS',
+            'limit_operator' => 'le',
+            'limit_value' => 100,
+            'column_name' => 'col1',
+            'jenis' => 'TBS',
+            'is_active' => true,
+        ]);
+
+        $payload = [
+            'tanggal_sampel' => now()->format('Y-m-d'),
+            'rounded_time' => '10:30',
+            'rows' => [[
+                'kode' => 'CWS',
+                'tanggal_sampel' => now()->format('Y-m-d'),
+                'rounded_time' => '10:30',
+                'jenis' => 'TBS',
+                'operator' => 'Test Operator',
+                'sampel_boy' => 'Boy 1',
+                'berat_sampel' => 10,
+                'berat_dirty' => 2,
+                'moist_percent' => 1,
+            ]],
+        ];
+
+        $response = $this->actingAs($this->user)->post(route('kernel.dirt-moist.store'), $payload);
+
+        $response->assertRedirect();
     }
 }
