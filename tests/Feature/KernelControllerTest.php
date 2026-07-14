@@ -6,6 +6,9 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 use App\Models\User;
 use App\Models\KernelMasterData;
+use App\Models\KernelDirtMoistCalculation;
+use App\Models\KernelCalculation;
+use Carbon\Carbon;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 
@@ -22,6 +25,7 @@ class KernelControllerTest extends TestCase
             'create kernel losses',
             'edit kernel losses',
             'delete kernel losses',
+            'view performance kernel losses',
         ];
 
         foreach ($permissions as $p) {
@@ -96,6 +100,102 @@ class KernelControllerTest extends TestCase
         ]);
     }
 
+    public function test_index_filters_by_sample_date_instead_of_creation_date()
+    {
+        $rowOnSelectedDate = KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'FC1',
+            'jenis' => 'TBS',
+            'operator' => 'Test Operator',
+            'sampel_boy' => 'Boy 1',
+            'rounded_time' => Carbon::create(2024, 1, 11, 10, 30),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $rowOnOtherDate = KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'FC2',
+            'jenis' => 'TBS',
+            'operator' => 'Test Operator',
+            'sampel_boy' => 'Boy 1',
+            'rounded_time' => Carbon::create(2024, 1, 12, 10, 30),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('kernel.index', [
+            'start_date' => '2024-01-11',
+            'end_date' => '2024-01-11',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee($rowOnSelectedDate->kode);
+        $response->assertDontSee($rowOnOtherDate->kode);
+    }
+
+    public function test_performance_uses_sample_date_filter_for_unified_records()
+    {
+        $selectedRecord = KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'FC1',
+            'jenis' => 'TBS',
+            'operator' => 'Test Operator',
+            'sampel_boy' => 'Boy 1',
+            'rounded_time' => Carbon::create(2024, 1, 11, 10, 30),
+            'created_at' => Carbon::create(2024, 1, 10, 10, 30),
+            'updated_at' => Carbon::create(2024, 1, 10, 10, 30),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $otherRecord = KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'FC2',
+            'jenis' => 'TBS',
+            'operator' => 'Test Operator',
+            'sampel_boy' => 'Boy 1',
+            'rounded_time' => Carbon::create(2024, 1, 12, 10, 30),
+            'created_at' => Carbon::create(2024, 1, 10, 10, 30),
+            'updated_at' => Carbon::create(2024, 1, 10, 10, 30),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('kernel.performance', [
+            'start_date' => '2024-01-11',
+            'end_date' => '2024-01-11',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee($selectedRecord->kode);
+        $response->assertDontSee($otherRecord->kode);
+    }
+
     public function test_dirt_moist_store_accepts_valid_payload()
     {
         KernelMasterData::create([
@@ -128,5 +228,41 @@ class KernelControllerTest extends TestCase
         $response = $this->actingAs($this->user)->post(route('kernel.dirt-moist.store'), $payload);
 
         $response->assertRedirect();
+    }
+
+    public function test_dirt_moist_store_uses_row_sample_datetime_for_ybs()
+    {
+        KernelMasterData::create([
+            'office' => 'YBS',
+            'kode' => 'CWS',
+            'nama_sample' => 'Sample CWS',
+            'limit_operator' => 'le',
+            'limit_value' => 100,
+            'column_name' => 'col1',
+            'jenis' => 'TBS',
+            'is_active' => true,
+        ]);
+
+        $payload = [
+            'rows' => [[
+                'kode' => 'CWS',
+                'tanggal_sampel' => '2024-01-02',
+                'rounded_time' => '10:30',
+                'jenis' => 'TBS',
+                'operator' => 'Test Operator',
+                'sampel_boy' => 'Boy 1',
+                'berat_sampel' => 10,
+                'berat_dirty' => 2,
+                'moist_percent' => 1,
+            ]],
+        ];
+
+        $response = $this->actingAs($this->user)->post(route('kernel.dirt-moist.store'), $payload);
+
+        $response->assertRedirect();
+
+        $row = KernelDirtMoistCalculation::latest()->first();
+        $this->assertNotNull($row);
+        $this->assertSame('2024-01-02 10:30:00', $row->rounded_time->format('Y-m-d H:i:s'));
     }
 }

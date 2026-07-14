@@ -65,11 +65,10 @@ class KernelController extends Controller
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $calculationsQuery = KernelCalculation::with('user')
-            ->whereBetween('created_at', $range)
             ->orderBy('created_at', 'desc');
+        $this->applySampleDateRange($calculationsQuery, $startDate, $endDate);
 
         $this->applyOfficeFilter($calculationsQuery, $officeFilter);
 
@@ -238,7 +237,7 @@ class KernelController extends Controller
             $savedRows = [];
 
             foreach ($rowsToSave as $row) {
-                $roundedTime = $this->resolveKernelSampleTimestamp(
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
                     $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
                     $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
                     $isKegiatanDispek || $userOffice === 'YBS'
@@ -260,6 +259,12 @@ class KernelController extends Controller
                     }
                 }
 
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+                    $isKegiatanDispek || $userOffice === 'YBS'
+                );
+
                 try {
                     if (!$isKegiatanDispek) {
                         $this->validatePengulanganWindow(
@@ -268,13 +273,13 @@ class KernelController extends Controller
                             $userOffice,
                             $isPengulangan,
                             'Kernel Losses',
-                            $roundedTime
+                            $rowRoundedTime
                         );
 
                         $this->validateMachineWindowForKernelInput(
                             $kode,
                             $userOffice,
-                            $roundedTime,
+                            $rowRoundedTime,
                             'Kernel Losses'
                         );
                     }
@@ -313,7 +318,7 @@ class KernelController extends Controller
                 $kernelCalculationPayload = [
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $roundedTime,
+                    'rounded_time' => $rowRoundedTime,
                     'kegiatan_dispek' => $isKegiatanDispek,
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
@@ -428,6 +433,8 @@ class KernelController extends Controller
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelCalculation->office, true, 'kernel'),
             'sampel_boy' => $this->getSampleBoyValidationRules($kernelCalculation->office),
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'nullable|date_format:H:i',
             'berat_sampel' => 'required|numeric|min:0',
             'nut_utuh_nut' => 'required|numeric|min:0',
             'nut_utuh_kernel' => 'required|numeric|min:0',
@@ -438,7 +445,14 @@ class KernelController extends Controller
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
             'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
+            'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
         ]);
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp(
+            $validated['tanggal_sampel'] ?? $kernelCalculation->rounded_time?->toDateString(),
+            $validated['rounded_time'] ?? $kernelCalculation->rounded_time?->format('H:i'),
+            $kernelCalculation->office === 'YBS'
+        );
 
         $beratSampel = $validated['berat_sampel'];
         $ktsNutUtuh = $beratSampel > 0 ? round(($validated['nut_utuh_kernel'] / $beratSampel) * 100, 6) : 0;
@@ -452,6 +466,7 @@ class KernelController extends Controller
             'jenis' => $validated['jenis'],
             'operator' => $validated['operator'],
             'sampel_boy' => $validated['sampel_boy'],
+            'rounded_time' => $sampleTimestamp,
             'berat_sampel' => $beratSampel,
             'nut_utuh_nut' => $validated['nut_utuh_nut'],
             'nut_utuh_kernel' => $validated['nut_utuh_kernel'],
@@ -481,11 +496,10 @@ class KernelController extends Controller
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
             ->orderBy('created_at', 'desc');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $this->applyOfficeFilter($query, $officeFilter);
 
@@ -601,11 +615,6 @@ class KernelController extends Controller
             ]);
         }
 
-        $roundedTime = $this->resolveKernelSampleTimestamp(
-            $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
-            $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
-            $isKegiatanDispek || $userOffice === 'YBS'
-        );
         $rowsToSave = [];
 
         foreach (($validated['rows'] ?? []) as $row) {
@@ -635,6 +644,7 @@ class KernelController extends Controller
         }
 
         $limitMap = $this->getDirtMoistLimitMap($userOffice);
+        $roundedTime=0;
 
         return DB::transaction(function () use ($request, $userOffice, $roundedTime, $rowsToSave, $limitMap, $requiredFields, $isKegiatanDispek, $sampleBoyRequired, $sampleBoyOptions) {
             $rowErrors = [];
@@ -676,6 +686,12 @@ class KernelController extends Controller
 
                 $isPengulangan = (bool) ($row['pengulangan'] ?? false);
 
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+                    $isKegiatanDispek || $userOffice === 'YBS'
+                );
+
                 try {
                     if (!$isKegiatanDispek) {
                         $this->validatePengulanganWindow(
@@ -684,13 +700,13 @@ class KernelController extends Controller
                             $userOffice,
                             $isPengulangan,
                             'Dirt & Moist',
-                            $roundedTime
+                            $rowRoundedTime
                         );
 
                         $this->validateMachineWindowForKernelInput(
                             $kode,
                             $userOffice,
-                            $roundedTime,
+                            $rowRoundedTime,
                             'Dirt & Moist'
                         );
                     }
@@ -715,7 +731,7 @@ class KernelController extends Controller
                 $dirtMoistPayload = [
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $roundedTime,
+                    'rounded_time' => $rowRoundedTime,
                     'kegiatan_dispek' => $isKegiatanDispek,
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
@@ -796,13 +812,22 @@ class KernelController extends Controller
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($dirtMoistCalculation->office, true, 'dirt_moist'),
             'sampel_boy' => $this->getSampleBoyValidationRules($dirtMoistCalculation->office),
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'nullable|date_format:H:i',
             'berat_sampel' => 'required|numeric|gt:0',
             'berat_dirty' => 'required|numeric|min:0',
             'moist_percent' => 'nullable|numeric|min:0',
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
             'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
+            'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
         ]);
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp(
+            $validated['tanggal_sampel'] ?? $dirtMoistCalculation->rounded_time?->toDateString(),
+            $validated['rounded_time'] ?? $dirtMoistCalculation->rounded_time?->format('H:i'),
+            $dirtMoistCalculation->office === 'YBS'
+        );
 
         $dirtyToSampel = round(($validated['berat_dirty'] / $validated['berat_sampel']) * 100, 6);
         $limitMap = $this->getDirtMoistLimitMap($dirtMoistCalculation->office);
@@ -830,6 +855,7 @@ class KernelController extends Controller
             'jenis' => $validated['jenis'],
             'operator' => $validated['operator'],
             'sampel_boy' => $validated['sampel_boy'] ?? $dirtMoistCalculation->sampel_boy,
+            'rounded_time' => $sampleTimestamp,
             'berat_sampel' => $validated['berat_sampel'],
             'berat_dirty' => $validated['berat_dirty'],
             'dirty_to_sampel' => $dirtyToSampel,
@@ -870,11 +896,10 @@ class KernelController extends Controller
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelQwt::with('user')
-            ->whereBetween('created_at', $range)
             ->orderBy('created_at', 'desc');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $this->applyOfficeFilter($query, $officeFilter);
 
@@ -1072,6 +1097,12 @@ class KernelController extends Controller
 
                 $isPengulangan = (bool) ($row['pengulangan'] ?? false);
 
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+                    $isKegiatanDispek || $userOffice === 'YBS'
+                );
+
                 try {
                     if (!$isKegiatanDispek) {
                         $this->validatePengulanganWindow(
@@ -1080,13 +1111,13 @@ class KernelController extends Controller
                             $userOffice,
                             $isPengulangan,
                             'QWT Fibre Press',
-                            $roundedTime
+                            $rowRoundedTime
                         );
 
                         $this->validateMachineWindowForKernelInput(
                             $kode,
                             $userOffice,
-                            $roundedTime,
+                            $rowRoundedTime,
                             'QWT Fibre Press'
                         );
                     }
@@ -1125,7 +1156,7 @@ class KernelController extends Controller
                 $kernelQwtPayload = [
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $roundedTime,
+                    'rounded_time' => $rowRoundedTime,
                     'kegiatan_dispek' => $isKegiatanDispek,
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
@@ -1215,6 +1246,8 @@ class KernelController extends Controller
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelQwt->office, true, 'qwt'),
             'sampel_boy' => $this->getSampleBoyValidationRules($kernelQwt->office),
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'nullable|date_format:H:i',
             'sampel_setelah_kuarter' => 'required|numeric|gt:0',
             'berat_nut_utuh' => 'required|numeric|min:0',
             'berat_nut_pecah' => 'required|numeric|min:0',
@@ -1227,7 +1260,14 @@ class KernelController extends Controller
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
             'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
+            'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
         ]);
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp(
+            $validated['tanggal_sampel'] ?? $kernelQwt->rounded_time?->toDateString(),
+            $validated['rounded_time'] ?? $kernelQwt->rounded_time?->format('H:i'),
+            $kernelQwt->office === 'YBS'
+        );
 
         $totalBeratNut = round(
             $validated['berat_nut_utuh']
@@ -1256,6 +1296,7 @@ class KernelController extends Controller
             'jenis' => $validated['jenis'],
             'operator' => $validated['operator'],
             'sampel_boy' => $validated['sampel_boy'],
+            'rounded_time' => $sampleTimestamp,
             'sampel_setelah_kuarter' => $validated['sampel_setelah_kuarter'],
             'berat_nut_utuh' => $validated['berat_nut_utuh'],
             'berat_nut_pecah' => $validated['berat_nut_pecah'],
@@ -1305,11 +1346,10 @@ class KernelController extends Controller
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelRippleMill::with('user')
-            ->whereBetween('created_at', $range)
             ->orderBy('created_at', 'desc');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $this->applyOfficeFilter($query, $officeFilter);
 
@@ -1491,6 +1531,12 @@ class KernelController extends Controller
 
                 $isPengulangan = (bool) ($row['pengulangan'] ?? false);
 
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+                    $isKegiatanDispek || $userOffice === 'YBS'
+                );
+
                 try {
                     if (!$isKegiatanDispek) {
                         $this->validatePengulanganWindow(
@@ -1499,13 +1545,13 @@ class KernelController extends Controller
                             $userOffice,
                             $isPengulangan,
                             'Ripple Mill',
-                            $roundedTime
+                            $rowRoundedTime
                         );
 
                         $this->validateMachineWindowForKernelInput(
                             $kode,
                             $userOffice,
-                            $roundedTime,
+                            $rowRoundedTime,
                             'Ripple Mill'
                         );
                     }
@@ -1531,7 +1577,7 @@ class KernelController extends Controller
                 $rippleMillPayload = [
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $roundedTime,
+                    'rounded_time' => $rowRoundedTime,
                     'kegiatan_dispek' => $isKegiatanDispek,
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
@@ -1612,13 +1658,22 @@ class KernelController extends Controller
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelRippleMill->office, true, 'ripple_mill'),
             'sampel_boy' => $this->getSampleBoyValidationRules($kernelRippleMill->office),
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'nullable|date_format:H:i',
             'berat_sampel' => 'required|numeric|gt:0',
             'berat_nut_utuh' => 'required|numeric|min:0',
             'berat_nut_pecah' => 'required|numeric|min:0',
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
             'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
+            'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
         ]);
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp(
+            $validated['tanggal_sampel'] ?? $kernelRippleMill->rounded_time?->toDateString(),
+            $validated['rounded_time'] ?? $kernelRippleMill->rounded_time?->format('H:i'),
+            $kernelRippleMill->office === 'YBS'
+        );
 
         $beratSampel = (float) $validated['berat_sampel'];
         $sampleNutUtuh = round(((float) $validated['berat_nut_utuh'] / $beratSampel) * 100, 6);
@@ -1633,6 +1688,7 @@ class KernelController extends Controller
             'jenis' => $validated['jenis'],
             'operator' => $validated['operator'],
             'sampel_boy' => $validated['sampel_boy'],
+            'rounded_time' => $sampleTimestamp,
             'berat_sampel' => $beratSampel,
             'berat_nut_utuh' => $validated['berat_nut_utuh'],
             'berat_nut_pecah' => $validated['berat_nut_pecah'],
@@ -1673,11 +1729,10 @@ class KernelController extends Controller
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelDestoner::with('user')
-            ->whereBetween('created_at', $range)
             ->orderBy('created_at', 'desc');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $this->applyOfficeFilter($query, $officeFilter);
 
@@ -1861,6 +1916,12 @@ class KernelController extends Controller
 
                 $isPengulangan = (bool) ($row['pengulangan'] ?? false);
 
+                $rowRoundedTime = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? $validated['tanggal_sampel'] ?? null,
+                    $row['rounded_time'] ?? $validated['rounded_time'] ?? null,
+                    $isKegiatanDispek || $userOffice === 'YBS'
+                );
+
                 try {
                     if (!$isKegiatanDispek) {
                         $this->validatePengulanganWindow(
@@ -1869,13 +1930,13 @@ class KernelController extends Controller
                             $userOffice,
                             $isPengulangan,
                             'Destoner',
-                            $roundedTime
+                            $rowRoundedTime
                         );
 
                         $this->validateMachineWindowForKernelInput(
                             $kode,
                             $userOffice,
-                            $roundedTime,
+                            $rowRoundedTime,
                             'Destoner'
                         );
                     }
@@ -1901,7 +1962,7 @@ class KernelController extends Controller
                 $destonerPayload = [
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $roundedTime,
+                    'rounded_time' => $rowRoundedTime,
                     'kegiatan_dispek' => $isKegiatanDispek,
                     'kode' => $kode,
                     'jenis' => $row['jenis'] ?? null,
@@ -1987,6 +2048,8 @@ class KernelController extends Controller
             'jenis' => 'required|string',
             'operator' => $this->getOperatorValidationRules($kernelDestoner->office, true, 'destoner'),
             'sampel_boy' => $this->getSampleBoyValidationRules($kernelDestoner->office),
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'nullable|date_format:H:i',
             'berat_sampel' => 'required|numeric|gt:0',
             'time' => 'required|numeric|gt:0',
             'berat_nut' => 'required|numeric|min:0',
@@ -1994,7 +2057,14 @@ class KernelController extends Controller
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
             'sampel_boy.in' => 'Sampel Boy tidak sesuai daftar Office YBS.',
+            'rounded_time.date_format' => 'Format jam pengambilan harus HH:MM.',
         ]);
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp(
+            $validated['tanggal_sampel'] ?? $kernelDestoner->rounded_time?->toDateString(),
+            $validated['rounded_time'] ?? $kernelDestoner->rounded_time?->format('H:i'),
+            $kernelDestoner->office === 'YBS'
+        );
 
         $beratSampel = (float) $validated['berat_sampel'];
         $time = (float) $validated['time'];
@@ -2017,6 +2087,7 @@ class KernelController extends Controller
             'jenis' => $validated['jenis'],
             'operator' => $validated['operator'],
             'sampel_boy' => $validated['sampel_boy'],
+            'rounded_time' => $sampleTimestamp,
             'berat_sampel' => $beratSampel,
             'time' => $time,
             'berat_nut' => $beratNut,
@@ -3342,6 +3413,25 @@ class KernelController extends Controller
             ->when($officeCode !== '' && $officeCode !== 'ALL', fn($q) => $q->where('office', $officeCode));
     }
 
+    private function applySampleDateRange($query, string $startDate, string $endDate): void
+    {
+        $start = Carbon::parse($startDate)->startOfDay();
+        $end = Carbon::parse($endDate)->endOfDay();
+
+        $query->where(function ($inner) use ($start, $end): void {
+            $inner->whereBetween('rounded_time', [
+                $start->format('Y-m-d H:i:s'),
+                $end->format('Y-m-d H:i:s'),
+            ])->orWhere(function ($fallback) use ($start, $end): void {
+                $fallback->whereNull('rounded_time')
+                    ->whereBetween('created_at', [
+                        $start->format('Y-m-d H:i:s'),
+                        $end->format('Y-m-d H:i:s'),
+                    ]);
+            });
+        });
+    }
+
     private function resolveProductionDateRange(string $startDate, string $endDate, ?string $officeFilter = null): array
     {
         $resolvedOffice = $officeFilter ?? $this->resolveOfficeFilter();
@@ -4331,19 +4421,21 @@ class KernelController extends Controller
 
         $officeFilter = $officeFilter ?? $this->resolveOfficeFilter();
 
-        $kernelRows = KernelCalculation::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $kernelQuery = KernelCalculation::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($kernelQuery, $startDate, $endDate);
+
+        $kernelRows = $kernelQuery->get()
             ->map(function ($row) {
                 $row->source_module = 'Kernel Losses';
                 return $row;
             });
 
-        $dirtMoistRows = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $dirtMoistQuery = KernelDirtMoistCalculation::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($dirtMoistQuery, $startDate, $endDate);
+
+        $dirtMoistRows = $dirtMoistQuery->get()
             ->map(function ($row) {
                 $metricPercent = (float) ($row->dirty_to_sampel ?? 0);
 
@@ -4374,10 +4466,11 @@ class KernelController extends Controller
                 ];
             });
 
-        $moistRows = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $moistQuery = KernelDirtMoistCalculation::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($moistQuery, $startDate, $endDate);
+
+        $moistRows = $moistQuery->get()
             ->map(function ($row) {
                 $metricPercent = (float) ($row->moist_percent ?? 0);
 
@@ -4408,10 +4501,11 @@ class KernelController extends Controller
                 ];
             });
 
-        $qwtRows = KernelQwt::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $qwtQuery = KernelQwt::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($qwtQuery, $startDate, $endDate);
+
+        $qwtRows = $qwtQuery->get()
             ->map(function ($row) {
                 $metricPercent = (float) ($row->bn_tn ?? 0);
 
@@ -4442,10 +4536,11 @@ class KernelController extends Controller
                 ];
             });
 
-        $rippleRows = KernelRippleMill::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $rippleQuery = KernelRippleMill::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($rippleQuery, $startDate, $endDate);
+
+        $rippleRows = $rippleQuery->get()
             ->map(function ($row) {
                 $metricPercent = (float) ($row->efficiency ?? 0);
 
@@ -4476,10 +4571,11 @@ class KernelController extends Controller
                 ];
             });
 
-        $destonerRows = KernelDestoner::with('user')
-            ->whereBetween('created_at', $range)
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->get()
+        $destonerQuery = KernelDestoner::with('user')
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($destonerQuery, $startDate, $endDate);
+
+        $destonerRows = $destonerQuery->get()
             ->map(function ($row) {
                 $metricPercent = (float) ($row->total_losses_kernel ?? 0);
 

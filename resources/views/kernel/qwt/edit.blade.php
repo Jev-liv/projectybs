@@ -66,6 +66,19 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="tanggal_sampel" class="block text-sm font-medium text-gray-700 mb-2">Tanggal Sampel</label>
+                    <input type="date" name="tanggal_sampel" id="tanggal_sampel"
+                        value="{{ old('tanggal_sampel', $kernelQwt->rounded_time?->toDateString() ?? now()->toDateString()) }}"
+                        max="{{ now()->toDateString() }}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
+                <div>
+                    <label for="rounded_time" class="block text-sm font-medium text-gray-700 mb-2">Jam Sampel</label>
+                    <input type="time" name="rounded_time" id="rounded_time"
+                        value="{{ old('rounded_time', $kernelQwt->rounded_time?->format('H:i') ?? now()->format('H:i')) }}"
+                        class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm">
+                </div>
                 <div><label for="sampel_setelah_kuarter" class="block text-sm font-medium text-gray-700 mb-2">Sampel
                         Setelah Kuarter <span class="text-red-500">*</span></label><input type="number" step="0.0001"
                         name="sampel_setelah_kuarter" id="sampel_setelah_kuarter"
