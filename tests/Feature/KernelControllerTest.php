@@ -8,6 +8,8 @@ use App\Models\User;
 use App\Models\KernelMasterData;
 use App\Models\KernelDirtMoistCalculation;
 use App\Models\KernelCalculation;
+use App\Models\KernelProsses;
+use App\Models\KernelMesin;
 use Carbon\Carbon;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -97,6 +99,84 @@ class KernelControllerTest extends TestCase
             'kode' => 'FC1',
             'sampel_boy' => 'Boy 1',
             'jenis' => 'TBS'
+        ]);
+    }
+
+    public function test_store_allows_earlier_sample_time_before_latest_normal_sample()
+    {
+        KernelMasterData::create([
+            'office' => 'YBS',
+            'kode' => 'FC1',
+            'nama_sample' => 'Sample FC1',
+            'limit_operator' => 'le',
+            'limit_value' => 100,
+            'column_name' => 'col1',
+            'jenis' => 'TBS',
+            'is_active' => true,
+        ]);
+
+        KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'FC1',
+            'jenis' => 'TBS',
+            'operator' => 'DONI SAPUTRA',
+            'sampel_boy' => 'Aprianda Tarigan',
+            'rounded_time' => Carbon::create(2024, 1, 2, 14, 0),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $process = KernelProsses::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'process_date' => '2024-01-02',
+            'input_team' => 'Team 1',
+            'team_1_start_time' => '06:00',
+            'team_1_end_time' => '22:00',
+            'team_2_start_time' => '06:00',
+            'team_2_end_time' => '22:00',
+        ]);
+
+        $process->mesin()->create([
+            'team_name' => 'Team 1',
+            'machine_group' => 'Fibre Cyclone',
+            'machine_name' => 'FIBRE CYCLONE 1',
+            'production_start_time' => '06:00',
+            'production_end_time' => '22:00',
+        ]);
+
+        $payload = [
+            'tanggal_sampel' => '2024-01-02',
+            'rounded_time' => '10:00',
+            'rows' => [[
+                'kode' => 'FC1',
+                'tanggal_sampel' => '2024-01-02',
+                'rounded_time' => '10:00',
+                'jenis' => 'TBS',
+                'operator' => 'DONI SAPUTRA',
+                'sampel_boy' => 'Aprianda Tarigan',
+                'berat_sampel' => 10,
+                'nut_utuh_nut' => 1,
+                'nut_utuh_kernel' => 1,
+                'nut_pecah_nut' => 1,
+                'nut_pecah_kernel' => 1,
+                'kernel_utuh' => 1,
+                'kernel_pecah' => 1,
+            ]],
+        ];
+
+        $response = $this->actingAs($this->user)->post(route('kernel.store'), $payload);
+
+        $response->assertRedirect(route('kernel.index'));
+        $this->assertDatabaseHas('kernel_calculations', [
+            'kode' => 'FC1',
+            'rounded_time' => Carbon::create(2024, 1, 2, 10, 0)->format('Y-m-d H:i:s'),
         ]);
     }
 
@@ -194,6 +274,45 @@ class KernelControllerTest extends TestCase
         $response->assertOk();
         $response->assertSee($selectedRecord->kode);
         $response->assertDontSee($otherRecord->kode);
+    }
+
+    public function test_performance_includes_cws1_records_in_allowed_codes()
+    {
+        $master = KernelMasterData::create([
+            'office' => 'YBS',
+            'kode' => 'CWS1',
+            'nama_sample' => 'Sample CWS1',
+            'limit_operator' => 'le',
+            'limit_value' => 100,
+            'column_name' => 'col1',
+            'jenis' => 'TBS',
+            'is_active' => true,
+        ]);
+
+        KernelCalculation::create([
+            'user_id' => $this->user->id,
+            'office' => 'YBS',
+            'kode' => 'CWS1',
+            'jenis' => 'TBS',
+            'operator' => 'Test Operator',
+            'sampel_boy' => 'Boy 1',
+            'rounded_time' => Carbon::create(2024, 1, 11, 10, 30),
+            'berat_sampel' => 10,
+            'nut_utuh_nut' => 1,
+            'nut_utuh_kernel' => 1,
+            'nut_pecah_nut' => 1,
+            'nut_pecah_kernel' => 1,
+            'kernel_utuh' => 1,
+            'kernel_pecah' => 1,
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('kernel.performance', [
+            'start_date' => '2024-01-11',
+            'end_date' => '2024-01-11',
+        ]));
+
+        $response->assertOk();
+        $response->assertSee('CWS1');
     }
 
     public function test_dirt_moist_store_accepts_valid_payload()

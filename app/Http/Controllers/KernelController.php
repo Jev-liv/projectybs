@@ -34,8 +34,8 @@ class KernelController extends Controller
     use LogsActivity;
 
     // Kernel Losses kode groups by office
-    private const KERNEL_LOSSES_KODES_YBS = ['FC1', 'FC2', 'L1', 'L2', 'L3', 'L4', 'CWS', 'CWS2', 'CWS3'];
-    private const KERNEL_LOSSES_KODES_SUN = ['FC1', 'FC2', 'L1', 'L2', 'CWS', 'CWS2'];
+    private const KERNEL_LOSSES_KODES_YBS = ['FC1', 'FC2', 'L1', 'L2', 'L3', 'L4', 'CWS', 'CWS1', 'CWS2', 'CWS3'];
+    private const KERNEL_LOSSES_KODES_SUN = ['FC1', 'FC2', 'L1', 'L2', 'CWS', 'CWS1', 'CWS2'];
     private const KERNEL_LOSSES_KODES_SJN = self::KERNEL_LOSSES_KODES_YBS;
 
     // Dirt & Moist kode groups by office
@@ -3294,7 +3294,7 @@ class KernelController extends Controller
 
         $referenceTime = $referenceTime ?? $this->getRoundedTime();
         $lastSampleTime = $lastNormalSample->rounded_time ?? $lastNormalSample->created_at;
-        $elapsedSeconds = $lastSampleTime->diffInSeconds($referenceTime, false);
+        $elapsedSeconds = abs((int) $lastSampleTime->diffInSeconds($referenceTime));
         $minSeconds = $intervalHours * 3600;
 
         if ($elapsedSeconds < $minSeconds && !$isPengulangan) {

@@ -1,8 +1,4 @@
-<x-layouts.app title="kemudian kenapa pada performance kernel losses saat filter Tanggal Mulai
-
-30/06/2026
-Tanggal Akhir malah munucl ini Tanggal	Jam	Nama Operator	Sample Boy	Jenis Sampel	Nilai Parameter	Nilai Performance
-29-Jun	01:30Kernel Losses">
+<x-layouts.app title="Input Data Kernel Losses">
     @php
         $isYbsOffice = Auth::user()?->office === 'YBS';
     @endphp
