@@ -4284,42 +4284,40 @@ class KernelController extends Controller
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
 
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
-
         $kernelQuery = KernelCalculation::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, function ($query) use ($kode) {
                 $query->where('kode', $kode);
             })
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($kernelQuery, $startDate, $endDate);
 
         $dirtMoistQuery = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, function ($query) use ($kode) {
                 $query->where('kode', $kode);
             })
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($dirtMoistQuery, $startDate, $endDate);
 
         $qwtQuery = KernelQwt::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, function ($query) use ($kode) {
                 $query->where('kode', $kode);
             })
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($qwtQuery, $startDate, $endDate);
 
         $rippleMillQuery = KernelRippleMill::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, function ($query) use ($kode) {
                 $query->where('kode', $kode);
             })
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($rippleMillQuery, $startDate, $endDate);
 
         $destonerQuery = KernelDestoner::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, function ($query) use ($kode) {
                 $query->where('kode', $kode);
             })
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($destonerQuery, $startDate, $endDate);
 
         $totalRecords = (clone $kernelQuery)->count();
         $avgLosses = (clone $kernelQuery)->avg('kernel_losses');
@@ -4388,12 +4386,13 @@ class KernelController extends Controller
         $endDate = $request->input('end_date', now()->toDateString());
         $kode = $request->input('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
-        $data = KernelCalculation::with('user')
-            ->whereBetween('created_at', $range)
+        $dataQuery = KernelCalculation::with('user')
             ->when($kode, fn($q) => $q->where('kode', $kode))
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
+        $this->applySampleDateRange($dataQuery, $startDate, $endDate);
+
+        $data = $dataQuery
             ->get()
             ->sortBy('created_at')
             ->values();
@@ -4655,13 +4654,12 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->orderBy('created_at');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $totalRecords = (clone $query)->count();
         $rows = $query->paginate(25)->appends($request->except('page'));
@@ -4700,13 +4698,14 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
-        $data = KernelDirtMoistCalculation::with('user')
-            ->whereBetween('created_at', $range)
+        $dataQuery = KernelDirtMoistCalculation::with('user')
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->orderBy('created_at')
+            ->orderBy('created_at');
+        $this->applySampleDateRange($dataQuery, $startDate, $endDate);
+
+        $data = $dataQuery
             ->get();
 
         $this->logExport('Laporan Dirt & Moist', [
@@ -4734,13 +4733,12 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelQwt::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->orderBy('created_at');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $totalRecords = (clone $query)->count();
         $rows = $query->paginate(25)->appends($request->except('page'));
@@ -4779,13 +4777,14 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
-        $data = KernelQwt::with('user')
-            ->whereBetween('created_at', $range)
+        $dataQuery = KernelQwt::with('user')
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->orderBy('created_at')
+            ->orderBy('created_at');
+        $this->applySampleDateRange($dataQuery, $startDate, $endDate);
+
+        $data = $dataQuery
             ->get();
 
         $this->logExport('Laporan QWT Fibre Press', [
@@ -4813,13 +4812,12 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelRippleMill::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->orderBy('created_at');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $totalRecords = (clone $query)->count();
         $rows = $query->paginate(25)->appends($request->except('page'));
@@ -4853,13 +4851,14 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
-        $data = KernelRippleMill::with('user')
-            ->whereBetween('created_at', $range)
+        $dataQuery = KernelRippleMill::with('user')
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->orderBy('created_at')
+            ->orderBy('created_at');
+        $this->applySampleDateRange($dataQuery, $startDate, $endDate);
+
+        $data = $dataQuery
             ->get();
 
         $this->logExport('Laporan Ripple Mill', [
@@ -4887,13 +4886,12 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
         $query = KernelDestoner::with('user')
-            ->whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->orderBy('created_at');
+        $this->applySampleDateRange($query, $startDate, $endDate);
 
         $totalRecords = (clone $query)->count();
         $rows = $query->paginate(25)->appends($request->except('page'));
@@ -4927,13 +4925,14 @@ class KernelController extends Controller
         $endDate = $request->get('end_date', now()->toDateString());
         $kode = $request->get('kode');
         $officeFilter = $this->resolveOfficeFilter($request);
-        $range = $this->resolveVisibleDateRange($startDate, $endDate, $officeFilter);
 
-        $data = KernelDestoner::with('user')
-            ->whereBetween('created_at', $range)
+        $dataQuery = KernelDestoner::with('user')
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
-            ->orderBy('created_at')
+            ->orderBy('created_at');
+        $this->applySampleDateRange($dataQuery, $startDate, $endDate);
+
+        $data = $dataQuery
             ->get();
 
         $this->logExport('Laporan Destoner', [

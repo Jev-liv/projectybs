@@ -3350,8 +3350,7 @@ class ProcessController extends Controller
         }
 
         foreach ($groupSlots as $groupKey => $slots) {
-            $intervalMinutes = (int) ($this->getIntervalMinutesForOffice($office === '' ? 'YBS' : $office)[$groupKey] ?? 0);
-            $groupActual[$groupKey] = $this->adjustSampleCountForInterval(count($slots), $intervalMinutes);
+            $groupActual[$groupKey] = count($slots);
         }
 
         return [
@@ -3379,9 +3378,9 @@ class ProcessController extends Controller
 
     private function fetchTimedCodeRows($query, string $date, string $office): Collection
     {
-        $baseDate = Carbon::parse($date);
-        $startDateTime = $baseDate->copy()->setTime(7, 0, 0)->format('Y-m-d H:i:s');
-        $endDateTime = $baseDate->copy()->addDay()->setTime(6, 59, 59)->format('Y-m-d H:i:s');
+        $baseDate = Carbon::parse($date)->startOfDay();
+        $startDateTime = $baseDate->copy()->startOfDay()->format('Y-m-d H:i:s');
+        $endDateTime = $baseDate->copy()->endOfDay()->format('Y-m-d H:i:s');
         $table = $query->getModel()->getTable();
         $hasPengulanganColumn = Schema::hasColumn($table, 'pengulangan');
         $selectColumns = ['kode', 'rounded_time', 'created_at', 'sampel_boy'];
@@ -3391,11 +3390,13 @@ class ProcessController extends Controller
 
         $rows = $query
             ->where(function ($builder) use ($startDateTime, $endDateTime) {
-                $builder->whereBetween('rounded_time', [$startDateTime, $endDateTime])
-                    ->orWhere(function ($fallback) use ($startDateTime, $endDateTime) {
-                        $fallback->whereNull('rounded_time')
-                            ->whereBetween('created_at', [$startDateTime, $endDateTime]);
-                    });
+                $builder->where(function ($sampleDateRange) use ($startDateTime, $endDateTime): void {
+                    $sampleDateRange->whereNotNull('rounded_time')
+                        ->whereBetween('rounded_time', [$startDateTime, $endDateTime]);
+                })->orWhere(function ($fallback) use ($startDateTime, $endDateTime): void {
+                    $fallback->whereNull('rounded_time')
+                        ->whereBetween('created_at', [$startDateTime, $endDateTime]);
+                });
             })
             ->when($office !== '', fn($builder) => $builder->where('office', $office))
             ->when($hasPengulanganColumn, fn($builder) => $builder->where('pengulangan', false))
