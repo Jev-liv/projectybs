@@ -4745,7 +4745,8 @@ class KernelController extends Controller
         $masterData = $this->activeKernelMasterDataQuery($officeFilter)->get()->keyBy('kode');
         $kodeOptions = KernelMasterData::getKodeDropdown($officeFilter);
 
-        $avgBnTn = KernelQwt::whereBetween('created_at', $range)
+        
+        $avgBnTn = KernelQwt::whereBetween('created_at', $range=0)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->avg('bn_tn');
