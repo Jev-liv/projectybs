@@ -10,6 +10,7 @@ use App\Exports\KernelQwtExport;
 use App\Exports\KernelRekapExport;
 use App\Exports\KernelRippleMillExport;
 use App\Models\KernelBobotConfig;
+use App\Models\KernelBoilerSoftenerCalculation;
 use App\Models\KernelCalculation;
 use App\Models\KernelMesin;
 use App\Models\KernelDirtMoistCalculation;
@@ -108,6 +109,124 @@ class KernelController extends Controller
             'endDate',
             'officeFilter'
         ));
+    }
+
+    public function boilerSoftenerIndex(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+        $officeFilter = $this->resolveOfficeFilter($request);
+        $query = KernelBoilerSoftenerCalculation::with('user')->orderByDesc('rounded_time')->orderByDesc('created_at');
+        $this->applySampleDateRange($query, $startDate, $endDate);
+        $this->applyOfficeFilter($query, $officeFilter);
+        $query->when($request->filled('jenis'), fn($q) => $q->where('jenis', $request->jenis));
+        $query->when($request->filled('parameter'), fn($q) => $q->where('parameter', $request->parameter));
+        if (!Auth::user()->can('view kernel losses')) {
+            $query->where('user_id', Auth::id());
+        }
+
+        $totalRows = (clone $query)->count();
+        $todayRows = KernelBoilerSoftenerCalculation::whereDate('created_at', today())
+            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))->count();
+
+        return view('kernel.boiler-softener.index', [
+            'boilerSoftenerCalculations' => $query->paginate(15)->withQueryString(),
+            'statistics' => ['total_records' => $totalRows, 'records_today' => $todayRows, 'calculations_count' => $totalRows],
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'officeFilter' => $officeFilter,
+            'parameterOptions' => $this->getBoilerSoftenerParameterOptions(),
+        ]);
+    }
+
+    public function boilerSoftenerCreate()
+    {
+        if (!Auth::user()->can('create kernel losses')) {
+            abort(403, 'Anda tidak memiliki akses untuk input data boiler & softener.');
+        }
+        $userOffice = $this->getUserOffice();
+        return view('kernel.boiler-softener.create', [
+            'operatorOptions' => $this->getOperatorOptionsByOffice($userOffice, 'boiler_softener'),
+            'sampleBoyOptions' => $this->getSampleBoyOptionsByOffice($userOffice),
+            'parameterOptions' => $this->getBoilerSoftenerParameterOptions(),
+        ]);
+    }
+
+    public function boilerSoftenerStore(Request $request)
+    {
+        if (!Auth::user()->can('create kernel losses')) {
+            abort(403, 'Anda tidak memiliki akses untuk input data boiler & softener.');
+        }
+        $userOffice = $this->getUserOffice();
+        if (!$userOffice) {
+            return back()->withInput()->with('error', 'Anda harus memiliki Office yang ditentukan untuk dapat input data.');
+        }
+
+        $parameterOptions = $this->getBoilerSoftenerParameterOptions();
+        $validated = $request->validate([
+            'tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rounded_time' => 'required|date_format:H:i',
+            'rows' => 'required|array',
+            'rows.*.jenis' => ['required', Rule::in(['boiler', 'softener'])],
+            'rows.*.parameter' => ['required', Rule::in(array_keys($parameterOptions))],
+            'rows.*.nilai' => 'nullable|numeric',
+            'rows.*.satuan' => 'nullable|string|max:30',
+            'rows.*.operator' => 'nullable|string|max:255',
+            'rows.*.sampel_boy' => 'nullable|string|max:255',
+            'rows.*.pengulangan' => 'nullable|boolean',
+            'rows.*.remarks' => 'nullable|string|max:500',
+        ]);
+
+        $rows = collect($validated['rows'] ?? [])->filter(fn($row) => $this->hasAnyValue($row['nilai'] ?? null));
+        if ($rows->isEmpty()) {
+            throw ValidationException::withMessages(['rows' => 'Silakan isi minimal satu data Boiler & Softener.']);
+        }
+
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp($validated['tanggal_sampel'] ?? null, $validated['rounded_time'], true);
+        $savedRows = DB::transaction(function () use ($rows, $userOffice, $sampleTimestamp, $parameterOptions) {
+            return $rows->map(function (array $row) use ($userOffice, $sampleTimestamp, $parameterOptions) {
+                $record = KernelBoilerSoftenerCalculation::create([
+                    'user_id' => Auth::id(),
+                    'office' => $userOffice,
+                    'rounded_time' => $sampleTimestamp,
+                    'jenis' => $row['jenis'],
+                    'parameter' => $row['parameter'],
+                    'nilai' => $row['nilai'],
+                    'satuan' => $row['satuan'] ?? data_get($parameterOptions, $row['parameter'] . '.satuan'),
+                    'operator' => $row['operator'] ?? null,
+                    'sampel_boy' => $row['sampel_boy'] ?? Auth::user()->name,
+                    'pengulangan' => (bool) ($row['pengulangan'] ?? false),
+                    'remarks' => $row['remarks'] ?? null,
+                ]);
+                $this->logCreate($record, "Input data {$record->jenis} {$record->parameter}", ['module' => 'boiler_softener', 'office' => $userOffice]);
+                return $record;
+            });
+        });
+
+        return redirect()->route('kernel.boiler-softener.index')->with('success', $savedRows->count() . ' data Boiler & Softener berhasil disimpan.');
+    }
+
+    public function boilerSoftenerDestroy(KernelBoilerSoftenerCalculation $boilerSoftenerCalculation)
+    {
+        $this->ensureCanDeleteKernelLosses();
+        $this->logDelete($boilerSoftenerCalculation, "Hapus data {$boilerSoftenerCalculation->jenis} {$boilerSoftenerCalculation->parameter}", ['module' => 'boiler_softener', 'office' => $boilerSoftenerCalculation->office]);
+        $boilerSoftenerCalculation->delete();
+        return back()->with('success', 'Data Boiler & Softener berhasil dihapus.');
+    }
+
+    public function boilerSoftenerRekap(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->startOfMonth()->toDateString());
+        $endDate = $request->input('end_date', now()->toDateString());
+        $officeFilter = $this->resolveOfficeFilter($request);
+        $query = KernelBoilerSoftenerCalculation::query()->whereBetween(DB::raw('DATE(COALESCE(rounded_time, created_at))'), [$startDate, $endDate]);
+        $this->applyOfficeFilter($query, $officeFilter);
+        $dataByDate = $query->get()->groupBy(fn($row) => ($row->rounded_time ?? $row->created_at)->toDateString())
+            ->map(fn($dateRows) => $dateRows->groupBy(fn($row) => $row->jenis . '|' . $row->parameter)
+                ->map(fn($parameterRows) => ['avg' => $parameterRows->avg('nilai'), 'count' => $parameterRows->count()])->all())->all();
+        ksort($dataByDate);
+
+        return view('kernel.boiler-softener.rekap', compact('dataByDate', 'startDate', 'endDate', 'officeFilter'));
     }
 
     public function create()
@@ -2770,6 +2889,15 @@ class KernelController extends Controller
         }
 
         return $orderedOptions;
+    }
+
+    private function getBoilerSoftenerParameterOptions(): array
+    {
+        return [
+            'ph' => ['label' => 'pH', 'satuan' => 'pH', 'jenis' => ['boiler', 'softener']],
+            'tds' => ['label' => 'TDS', 'satuan' => 'ppm', 'jenis' => ['boiler', 'softener']],
+            'hardness' => ['label' => 'Hardness', 'satuan' => 'ppm', 'jenis' => ['softener']],
+        ];
     }
 
     private function getDirtMoistFormGroups(array $kodeOptions, ?string $office = null): array

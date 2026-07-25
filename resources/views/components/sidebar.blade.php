@@ -123,22 +123,6 @@ Setiap menu item dijaga dengan @can agar hanya tampil sesuai hak akses role.
             @endcan
 
             @can('view kernel losses')
-                <x-sidebar-item href="{{ route('kernel.dirt-moist.index') }}"
-                    :active="request()->routeIs('kernel.dirt-moist.index')"
-                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h10a2 2 0 012 2v12a2 2 0 01-2 2z"/></svg>'>
-                    <span class="sidebar-item-text">Data Dirt &amp; Moist</span>
-                </x-sidebar-item>
-            @endcan
-
-            @can('create kernel losses')
-                <x-sidebar-item href="{{ route('kernel.dirt-moist.create') }}"
-                    :active="request()->routeIs('kernel.dirt-moist.create')"
-                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>'>
-                    <span class="sidebar-item-text">Input Data Dirt &amp; Moist</span>
-                </x-sidebar-item>
-            @endcan
-
-            @can('view kernel losses')
                 <x-sidebar-item href="{{ route('kernel.qwt.index') }}" :active="request()->routeIs('kernel.qwt.index')"
                     icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M12 11v6m-3-3h6"/></svg>'>
                     <span class="sidebar-item-text">Data QWT Fibre Press</span>
@@ -197,6 +181,37 @@ Setiap menu item dijaga dengan @can agar hanya tampil sesuai hak akses role.
                 <x-sidebar-item href="{{ route('kernel.performance') }}" :active="request()->routeIs('kernel.performance')"
                     icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>'>
                     <span class="sidebar-item-text">Performance</span>
+                </x-sidebar-item>
+            @endcan
+        @endcanany
+
+        {{-- ── Boiler & Softener ───────────────────────────── --}}
+        @canany(['view kernel losses', 'create kernel losses', 'view rekap kernel losses'])
+            <p class="px-3 pt-5 pb-1 mt-4 text-[11px] uppercase tracking-widest text-gray-400 font-semibold">
+                Boiler &amp; Softener
+            </p>
+
+            @can('view kernel losses')
+                <x-sidebar-item href="{{ route('kernel.boiler-softener.index') }}"
+                    :active="request()->routeIs('kernel.boiler-softener.index')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19h16M6 16V8m4 8V5m4 11v-6m4 6V3"/></svg>'>
+                    <span class="sidebar-item-text">Data Boiler &amp; Softener</span>
+                </x-sidebar-item>
+            @endcan
+
+            @can('create kernel losses')
+                <x-sidebar-item href="{{ route('kernel.boiler-softener.create') }}"
+                    :active="request()->routeIs('kernel.boiler-softener.create')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>'>
+                    <span class="sidebar-item-text">Input Data Boiler &amp; Softener</span>
+                </x-sidebar-item>
+            @endcan
+
+            @can('view rekap kernel losses')
+                <x-sidebar-item href="{{ route('kernel.boiler-softener.rekap') }}"
+                    :active="request()->routeIs('kernel.boiler-softener.rekap')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h18M3 6h18M3 14h18M3 18h18"/></svg>'>
+                    <span class="sidebar-item-text">Rekap Boiler &amp; Softener</span>
                 </x-sidebar-item>
             @endcan
         @endcanany

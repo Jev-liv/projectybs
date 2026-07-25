@@ -133,6 +133,26 @@ Route::middleware('auth')->group(function () {
             ->name('dirt-moist.store')
             ->middleware('permission:create kernel losses');
 
+        Route::get('/boiler-softener', [KernelController::class, 'boilerSoftenerIndex'])
+            ->name('boiler-softener.index')
+            ->middleware('permission:view kernel losses');
+
+        Route::get('/boiler-softener/create', [KernelController::class, 'boilerSoftenerCreate'])
+            ->name('boiler-softener.create')
+            ->middleware('permission:create kernel losses');
+
+        Route::post('/boiler-softener', [KernelController::class, 'boilerSoftenerStore'])
+            ->name('boiler-softener.store')
+            ->middleware('permission:create kernel losses');
+
+        Route::delete('/boiler-softener/{boilerSoftenerCalculation}', [KernelController::class, 'boilerSoftenerDestroy'])
+            ->name('boiler-softener.destroy')
+            ->middleware('permission:delete kernel losses');
+
+        Route::get('/boiler-softener/rekap', [KernelController::class, 'boilerSoftenerRekap'])
+            ->name('boiler-softener.rekap')
+            ->middleware('permission:view rekap kernel losses');
+
         Route::get('/dirt-moist/{dirtMoistCalculation}/edit', [KernelController::class, 'dirtMoistEdit'])
             ->name('dirt-moist.edit')
             ->middleware('permission:edit kernel losses');
