@@ -4793,7 +4793,7 @@ class KernelController extends Controller
         $rows = $query->paginate(25)->appends($request->except('page'));
         $masterData = $this->activeKernelMasterDataQuery($officeFilter)->get()->keyBy('kode');
         $kodeOptions = KernelMasterData::getKodeDropdown($officeFilter);
-
+        $range=[$startDate, $endDate];
         $avgDirty = KernelDirtMoistCalculation::whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
@@ -4873,8 +4873,8 @@ class KernelController extends Controller
         $masterData = $this->activeKernelMasterDataQuery($officeFilter)->get()->keyBy('kode');
         $kodeOptions = KernelMasterData::getKodeDropdown($officeFilter);
 
-        
-        $avgBnTn = KernelQwt::whereBetween('created_at', $range=0)
+        $range=[$startDate, $endDate];
+        $avgBnTn = KernelQwt::whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
             ->avg('bn_tn');
@@ -4952,7 +4952,7 @@ class KernelController extends Controller
         $rows = $query->paginate(25)->appends($request->except('page'));
         $masterData = $this->activeKernelMasterDataQuery($officeFilter)->get()->keyBy('kode');
         $kodeOptions = KernelMasterData::getKodeDropdown($officeFilter);
-
+        $range=[$startDate, $endDate];
         $avgEfficiency = KernelRippleMill::whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
@@ -5026,7 +5026,7 @@ class KernelController extends Controller
         $rows = $query->paginate(25)->appends($request->except('page'));
         $masterData = $this->activeKernelMasterDataQuery($officeFilter)->get()->keyBy('kode');
         $kodeOptions = KernelMasterData::getKodeDropdown($officeFilter);
-
+        $range=[$startDate, $endDate];
         $avgLossKernelTbs = KernelDestoner::whereBetween('created_at', $range)
             ->when($kode, fn($q) => $q->where('kode', $kode))
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))
