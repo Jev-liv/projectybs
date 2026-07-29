@@ -137,6 +137,22 @@ Setiap menu item dijaga dengan @can agar hanya tampil sesuai hak akses role.
             @endcan
 
             @can('view kernel losses')
+                <x-sidebar-item href="{{ route('kernel.dirt-moist.index') }}"
+                    :active="request()->routeIs('kernel.dirt-moist.index')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>'>
+                    <span class="sidebar-item-text">Data Dirt & Moist</span>
+                </x-sidebar-item>
+            @endcan
+
+            @can('create kernel losses')
+                <x-sidebar-item href="{{ route('kernel.dirt-moist.create') }}"
+                    :active="request()->routeIs('kernel.dirt-moist.create')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>'>
+                    <span class="sidebar-item-text">Input Dirt & Moist</span>
+                </x-sidebar-item>
+            @endcan
+
+            @can('view kernel losses')
                 <x-sidebar-item href="{{ route('kernel.ripple-mill.index') }}"
                     :active="request()->routeIs('kernel.ripple-mill.index')"
                     icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2"/></svg>'>
