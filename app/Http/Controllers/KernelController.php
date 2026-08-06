@@ -738,10 +738,7 @@ class KernelController extends Controller
 
         foreach (($validated['rows'] ?? []) as $row) {
             $kode = (string) ($row['kode'] ?? '');
-            $requiredFields = ['berat_sampel', 'berat_dirty'];
-            if (str_starts_with($kode, 'OUT')) {
-                $requiredFields[] = 'moist_percent';
-            }
+            $requiredFields = $this->getDirtMoistRequiredFields($kode);
 
             $hasInput = false;
             foreach ($requiredFields as $field) {
@@ -784,10 +781,7 @@ class KernelController extends Controller
                         continue;
                     }
                 }
-                $requiredFields = ['berat_sampel', 'berat_dirty'];
-                if (str_starts_with($kode, 'OUT')) {
-                    $requiredFields[] = 'moist_percent';
-                }
+                $requiredFields = $this->getDirtMoistRequiredFields($kode);
 
                 foreach ($requiredFields as $field) {
                     if (!$this->hasAnyValue($row[$field] ?? null)) {
@@ -836,11 +830,14 @@ class KernelController extends Controller
                 }
 
                 $beratSampel = (float) $row['berat_sampel'];
-                $beratDirty = (float) $row['berat_dirty'];
+                $metricKey = $this->getDirtMoistMetricKey($kode);
+                $beratDirty = $this->hasAnyValue($row['berat_dirty'] ?? null) ? (float) $row['berat_dirty'] : null;
                 $moistPercent = $this->hasAnyValue($row['moist_percent'] ?? null) ? (float) $row['moist_percent'] : null;
-                $dirtyToSampel = round(($beratDirty / $beratSampel) * 100, 6);
+                $dirtyToSampel = ($metricKey === 'dirty' && $beratDirty !== null)
+                    ? round(($beratDirty / $beratSampel) * 100, 6)
+                    : null;
 
-                $limitConfig = $limitMap[$kode] ?? ['dirty' => null, 'moist' => null];
+                $limitConfig = $this->getDirtMoistLimitConfig($kode, $userOffice);
 
                 // if ($dirtyToSampel > 16) {
                 //     $rowErrors['rows.' . $kode . '.kode'] = "Total kernel losses untuk kode {$kode} melebihi batas wajar (16%).";
@@ -861,7 +858,7 @@ class KernelController extends Controller
                     'berat_sampel' => $beratSampel,
                     'berat_dirty' => $beratDirty,
                     'dirty_to_sampel' => $dirtyToSampel,
-                    'moist_percent' => $moistPercent,
+                    'moist_percent' => $metricKey === 'moist' ? $moistPercent : null,
                     'dirty_limit_operator' => data_get($limitConfig, 'dirty.operator'),
                     'dirty_limit_value' => data_get($limitConfig, 'dirty.value'),
                     'moist_limit_operator' => data_get($limitConfig, 'moist.operator'),
@@ -934,7 +931,7 @@ class KernelController extends Controller
             'tanggal_sampel' => 'nullable|date|before_or_equal:today',
             'rounded_time' => 'nullable|date_format:H:i',
             'berat_sampel' => 'required|numeric|gt:0',
-            'berat_dirty' => 'required|numeric|min:0',
+            'berat_dirty' => 'nullable|numeric|min:0',
             'moist_percent' => 'nullable|numeric|min:0',
         ], [
             'sampel_boy.required' => 'Sampel Boy wajib dipilih dari daftar Office YBS.',
@@ -948,13 +945,9 @@ class KernelController extends Controller
             $dirtMoistCalculation->office === 'YBS'
         );
 
-        $dirtyToSampel = round(($validated['berat_dirty'] / $validated['berat_sampel']) * 100, 6);
-        $limitMap = $this->getDirtMoistLimitMap($dirtMoistCalculation->office);
-        $limitConfig = $limitMap[$validated['kode']] ?? ['dirty' => null, 'moist' => null];
-        $requiredFields = ['berat_sampel', 'berat_dirty'];
-        if (str_starts_with($validated['kode'], 'OUT')) {
-            $requiredFields[] = 'moist_percent';
-        }
+        $metricKey = $this->getDirtMoistMetricKey($validated['kode']);
+        $limitConfig = $this->getDirtMoistLimitConfig($validated['kode'], $dirtMoistCalculation->office);
+        $requiredFields = $this->getDirtMoistRequiredFields($validated['kode']);
 
         foreach ($requiredFields as $field) {
             if (!$this->hasAnyValue($validated[$field] ?? null)) {
@@ -964,9 +957,17 @@ class KernelController extends Controller
             }
         }
 
-        $moistPercent = array_key_exists('moist_percent', $validated)
-            ? $validated['moist_percent']
-            : $dirtMoistCalculation->moist_percent;
+        $beratDirty = $this->hasAnyValue($validated['berat_dirty'] ?? null)
+            ? (float) $validated['berat_dirty']
+            : null;
+
+        $moistPercent = $this->hasAnyValue($validated['moist_percent'] ?? null)
+            ? (float) $validated['moist_percent']
+            : null;
+
+        $dirtyToSampel = ($metricKey === 'dirty' && $beratDirty !== null)
+            ? round(($beratDirty / $validated['berat_sampel']) * 100, 6)
+            : null;
 
         $dirtMoistCalculation->update([
             'user_id' => Auth::id(),
@@ -976,9 +977,9 @@ class KernelController extends Controller
             'sampel_boy' => $validated['sampel_boy'] ?? $dirtMoistCalculation->sampel_boy,
             'rounded_time' => $sampleTimestamp,
             'berat_sampel' => $validated['berat_sampel'],
-            'berat_dirty' => $validated['berat_dirty'],
+            'berat_dirty' => $beratDirty,
             'dirty_to_sampel' => $dirtyToSampel,
-            'moist_percent' => $moistPercent,
+            'moist_percent' => $metricKey === 'moist' ? $moistPercent : null,
             'dirty_limit_operator' => data_get($limitConfig, 'dirty.operator'),
             'dirty_limit_value' => data_get($limitConfig, 'dirty.value'),
             'moist_limit_operator' => data_get($limitConfig, 'moist.operator'),
@@ -2935,6 +2936,56 @@ class KernelController extends Controller
         return $result;
     }
 
+    private function isDirtMoistInletCode(string $kode): bool
+    {
+        return str_starts_with(strtoupper(trim($kode)), 'IN');
+    }
+
+    private function isDirtMoistOutletCode(string $kode): bool
+    {
+        return str_starts_with(strtoupper(trim($kode)), 'OUT');
+    }
+
+    private function getDirtMoistMetricKey(string $kode): ?string
+    {
+        if ($this->isDirtMoistInletCode($kode)) {
+            return 'dirty';
+        }
+
+        if ($this->isDirtMoistOutletCode($kode)) {
+            return 'moist';
+        }
+
+        return null;
+    }
+
+    private function getDirtMoistRequiredFields(string $kode): array
+    {
+        $fields = ['berat_sampel'];
+
+        if ($this->getDirtMoistMetricKey($kode) === 'dirty') {
+            $fields[] = 'berat_dirty';
+        }
+
+        if ($this->getDirtMoistMetricKey($kode) === 'moist') {
+            $fields[] = 'moist_percent';
+        }
+
+        return $fields;
+    }
+
+    private function getDirtMoistLimitConfig(string $kode, ?string $office = null): array
+    {
+        $limitMap = $this->getDirtMoistLimitMap($office);
+        $limitConfig = $limitMap[$kode] ?? ['dirty' => ['operator' => null, 'value' => null], 'moist' => ['operator' => null, 'value' => null]];
+        $metricKey = $this->getDirtMoistMetricKey($kode);
+
+        return [
+            'dirty' => $metricKey === 'dirty' ? data_get($limitConfig, 'dirty') : ['operator' => null, 'value' => null],
+            'moist' => $metricKey === 'moist' ? data_get($limitConfig, 'moist') : ['operator' => null, 'value' => null],
+        ];
+    }
+
     private function getQwtFormGroups(array $kodeOptions, ?string $office = null): array
     {
         $officeCode = strtoupper(trim((string) ($office ?? auth()->user()->office ?? 'YBS')));
@@ -3180,17 +3231,16 @@ class KernelController extends Controller
             ->mapWithKeys(function ($item) {
                 $operator = $item->limit_operator ?? 'le';
                 $value = (float) ($item->limit_value ?? 0);
+                $metricKey = $this->getDirtMoistMetricKey((string) $item->kode);
 
                 return [
                     $item->kode => [
-                        'dirty' => [
-                            'operator' => $operator,
-                            'value' => $value,
-                        ],
-                        'moist' => [
-                            'operator' => $operator,
-                            'value' => $value,
-                        ],
+                        'dirty' => $metricKey === 'dirty'
+                            ? ['operator' => $operator, 'value' => $value]
+                            : ['operator' => null, 'value' => null],
+                        'moist' => $metricKey === 'moist'
+                            ? ['operator' => $operator, 'value' => $value]
+                            : ['operator' => null, 'value' => null],
                     ],
                 ];
             })
@@ -3927,35 +3977,39 @@ class KernelController extends Controller
         $master = $this->activeKernelMasterDataQuery($calc->office)
             ->where('kode', $calc->kode)
             ->first();
-        $limitMap = $this->getDirtMoistLimitMap($calc->office);
-        $limitConfig = $limitMap[$calc->kode] ?? ['dirty' => null, 'moist' => null];
+        $metricKey = $this->getDirtMoistMetricKey($calc->kode);
+        $limitConfig = $this->getDirtMoistLimitConfig($calc->kode, $calc->office);
 
         $proof = $this->buildKernelProofBase('dirt_moist', $message, $calc, $master);
-        $proof['metrics'] = [
-            $this->buildProofMetric(
-                'Dirty to Sampel',
-                $calc->dirty_to_sampel,
-                '%',
-                2,
-                data_get($limitConfig, 'dirty.operator'),
-                data_get($limitConfig, 'dirty.value'),
-                2
-            ),
-            $this->buildProofMetric(
-                'Moist',
-                $calc->moist_percent,
-                '%',
-                2,
-                data_get($limitConfig, 'moist.operator'),
-                data_get($limitConfig, 'moist.value'),
-                2
-            ),
-        ];
-        $proof['inputs'] = [
+        $proof['metrics'] = array_values(array_filter([
+            $metricKey === 'dirty'
+                ? $this->buildProofMetric(
+                    'Dirty to Sampel',
+                    $calc->dirty_to_sampel,
+                    '%',
+                    2,
+                    data_get($limitConfig, 'dirty.operator'),
+                    data_get($limitConfig, 'dirty.value'),
+                    2
+                )
+                : null,
+            $metricKey === 'moist'
+                ? $this->buildProofMetric(
+                    'Moist',
+                    $calc->moist_percent,
+                    '%',
+                    2,
+                    data_get($limitConfig, 'moist.operator'),
+                    data_get($limitConfig, 'moist.value'),
+                    2
+                )
+                : null,
+        ]));
+        $proof['inputs'] = array_values(array_filter([
             $this->buildProofInput('Berat Sampel', $calc->berat_sampel, ' g', 2),
-            $this->buildProofInput('Berat Dirty', $calc->berat_dirty, ' g', 2),
-            $this->buildProofInput('Moist', $calc->moist_percent, ' %', 2),
-        ];
+            $metricKey === 'dirty' ? $this->buildProofInput('Berat Dirty', $calc->berat_dirty, ' g', 2) : null,
+            $metricKey === 'moist' ? $this->buildProofInput('Moist', $calc->moist_percent, ' %', 2) : null,
+        ]));
 
         return $proof;
     }
@@ -3995,40 +4049,44 @@ class KernelController extends Controller
         return collect($rows)->map(function ($calc) use ($masterByOfficeAndKode, $masterFallbackByKode) {
             $kode = (string) ($calc->kode ?? '');
             $officeCode = strtoupper(trim((string) ($calc->office ?? '')));
+            $metricKey = $this->getDirtMoistMetricKey($kode);
 
             $master = $masterByOfficeAndKode->get($officeCode . '|' . $kode)
                 ?? $masterFallbackByKode->get($kode);
 
-            $limitMap = $this->getDirtMoistLimitMap($calc->office);
-            $limitConfig = $limitMap[$kode] ?? ['dirty' => null, 'moist' => null];
+            $limitConfig = $this->getDirtMoistLimitConfig($kode, $calc->office);
 
             return [
                 'kode_label' => $kode . ' - ' . ($master->nama_sample ?? '-'),
-                'metrics' => [
-                    $this->buildProofMetric(
-                        'Dirty to Sampel',
-                        $calc->dirty_to_sampel,
-                        '%',
-                        2,
-                        data_get($limitConfig, 'dirty.operator'),
-                        data_get($limitConfig, 'dirty.value'),
-                        2
-                    ),
-                    $this->buildProofMetric(
-                        'Moist',
-                        $calc->moist_percent,
-                        '%',
-                        2,
-                        data_get($limitConfig, 'moist.operator'),
-                        data_get($limitConfig, 'moist.value'),
-                        2
-                    ),
-                ],
-                'inputs' => [
+                'metrics' => array_values(array_filter([
+                    $metricKey === 'dirty'
+                        ? $this->buildProofMetric(
+                            'Dirty to Sampel',
+                            $calc->dirty_to_sampel,
+                            '%',
+                            2,
+                            data_get($limitConfig, 'dirty.operator'),
+                            data_get($limitConfig, 'dirty.value'),
+                            2
+                        )
+                        : null,
+                    $metricKey === 'moist'
+                        ? $this->buildProofMetric(
+                            'Moist',
+                            $calc->moist_percent,
+                            '%',
+                            2,
+                            data_get($limitConfig, 'moist.operator'),
+                            data_get($limitConfig, 'moist.value'),
+                            2
+                        )
+                        : null,
+                ])),
+                'inputs' => array_values(array_filter([
                     $this->buildProofInput('Berat Sampel', $calc->berat_sampel, ' g', 2),
-                    $this->buildProofInput('Berat Dirty', $calc->berat_dirty, ' g', 2),
-                    $this->buildProofInput('Moist', $calc->moist_percent, ' %', 2),
-                ],
+                    $metricKey === 'dirty' ? $this->buildProofInput('Berat Dirty', $calc->berat_dirty, ' g', 2) : null,
+                    $metricKey === 'moist' ? $this->buildProofInput('Moist', $calc->moist_percent, ' %', 2) : null,
+                ])),
             ];
         })->values()->all();
     }
@@ -4336,36 +4394,48 @@ class KernelController extends Controller
 
         if (str_starts_with($normalizedKode, 'IN')) {
             // Inlet Kernel Silo conversion (uses highest matching score first).
-            if ($value == 6.80)
+            if ($value >=6.70 && $value <= 6.90)
                 return 100;
-            if ($value >= 6.49 && $value <= 7.10)
+            if ($value >= 6.90 && $value <= 7.10)
                 return 90;
-            if ($value >= 6.00 && $value <= 7.40)
+            if ($value >= 6.50 && $value <= 6.70)
+                return 90;
+            if ($value >= 6.35 && $value <= 6.50)
                 return 80;
-            if ($value >= 5.49 && $value <= 7.70)
+            if ($value >= 7.10 && $value <= 7.25)
+                return 80;
+            if ($value >= 6.2 && $value <= 6.35)
                 return 70;
-            if ($value >= 5.00 && $value <= 8.00)
-                return 60;
-            if ($value >= 4.50 && $value <= 9.00)
+            if ($value >= 7.25 && $value <= 7.40)
+                return 70;
+            if ($value >= 7.40)
                 return 50;
-            return 0;
+            if ($value <= 6.20)
+                return 50;
+            return 50;
         }
 
         if (str_starts_with($normalizedKode, 'OUT')) {
             // Outlet Kernel Silo conversion (uses highest matching score first).
-            if ($value >= 6.50 && $value <= 7.50)
+            if ($value >=6.70 && $value <= 6.90)
                 return 100;
-            if ($value >= 6.10 && $value <= 7.80)
+            if ($value >= 6.90 && $value <= 7.10)
                 return 90;
-            if ($value >= 5.50 && $value <= 8.00)
+            if ($value >= 6.50 && $value <= 6.70)
+                return 90;
+            if ($value >= 6.35 && $value <= 6.50)
                 return 80;
-            if ($value >= 5.10 && $value <= 9.00)
+            if ($value >= 7.10 && $value <= 7.25)
+                return 80;
+            if ($value >= 6.2 && $value <= 6.35)
                 return 70;
-            if ($value >= 4.50 && $value <= 10.00)
-                return 60;
-            if ($value >= 0.00 && $value <= 20.00)
+            if ($value >= 7.25 && $value <= 7.40)
+                return 70;
+            if ($value >= 7.40)
                 return 50;
-            return 0;
+            if ($value <= 6.20)
+                return 50;
+            return 50;
         }
 
         if ($config->direction === 'desc') {
@@ -4382,7 +4452,7 @@ class KernelController extends Controller
                 return 60;
             if ($value >= $config->limit_50)
                 return 50;
-            return 0;
+            return 50;
         }
 
         // asc: Lower is better (≤)
@@ -4398,7 +4468,7 @@ class KernelController extends Controller
             return 60;
         if ($value <= $config->limit_50)
             return 50;
-        return 0;
+        return 50;
     }
 
     public function laporan(Request $request)
@@ -4564,6 +4634,11 @@ class KernelController extends Controller
 
         $dirtMoistRows = $dirtMoistQuery->get()
             ->map(function ($row) {
+                $metricKey = $this->getDirtMoistMetricKey((string) $row->kode);
+                if ($metricKey !== 'dirty') {
+                    return null;
+                }
+
                 $metricPercent = (float) ($row->dirty_to_sampel ?? 0);
 
                 return (object) [
@@ -4591,7 +4666,8 @@ class KernelController extends Controller
                     'user' => $row->user,
                     'source_module' => 'Dirt & Moist (%Dirty)',
                 ];
-            });
+            })
+            ->filter();
 
         $moistQuery = KernelDirtMoistCalculation::with('user')
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));
@@ -4599,6 +4675,11 @@ class KernelController extends Controller
 
         $moistRows = $moistQuery->get()
             ->map(function ($row) {
+                $metricKey = $this->getDirtMoistMetricKey((string) $row->kode);
+                if ($metricKey !== 'moist') {
+                    return null;
+                }
+
                 $metricPercent = (float) ($row->moist_percent ?? 0);
 
                 return (object) [
@@ -4626,7 +4707,8 @@ class KernelController extends Controller
                     'user' => $row->user,
                     'source_module' => 'Dirt & Moist (%Moist)',
                 ];
-            });
+            })
+            ->filter();
 
         $qwtQuery = KernelQwt::with('user')
             ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter));

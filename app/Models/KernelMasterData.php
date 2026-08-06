@@ -47,7 +47,12 @@ class KernelMasterData extends Model
      */
     public function getLimitLabelAttribute(): string
     {
-        $symbol = $this->limit_operator === 'le' ? '≤' : '>';
+        $symbol = match ($this->limit_operator) {
+            'lt' => '<',
+            'ge' => '≥',
+            'gt' => '>',
+            default => '≤',
+        };
         return $symbol . ' ' . number_format((float) $this->limit_value, 2);
     }
 
@@ -57,11 +62,11 @@ class KernelMasterData extends Model
      */
     public function isExceeded(float $valuePercent): bool
     {
-        if ($this->limit_operator === 'le') {
-            // Must be ≤ limit; exceeds if value > limit
-            return $valuePercent > (float) $this->limit_value;
-        }
-        // 'gt': must be > limit; fails if value ≤ limit
-        return $valuePercent <= (float) $this->limit_value;
+        return match ($this->limit_operator) {
+            'lt' => $valuePercent >= (float) $this->limit_value,
+            'ge' => $valuePercent < (float) $this->limit_value,
+            'gt' => $valuePercent <= (float) $this->limit_value,
+            default => $valuePercent > (float) $this->limit_value,
+        };
     }
 }

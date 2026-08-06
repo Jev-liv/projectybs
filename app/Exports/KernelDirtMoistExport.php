@@ -67,13 +67,14 @@ class KernelDirtMoistExport implements FromCollection, WithHeadings, WithMapping
         $counter++;
 
         $master = $this->masterData[$row->kode] ?? null;
+        $metricKey = str_starts_with(strtoupper($row->kode ?? ''), 'OUT') ? 'moist' : 'dirty';
 
-        $dirtyVal = (float) ($row->dirty_to_sampel ?? 0);
-        $moistVal = (float) ($row->moist_percent ?? 0);
-        $dirtyLimOp = $row->dirty_limit_operator ?? null;
-        $dirtyLimV = $row->dirty_limit_value !== null ? (float) $row->dirty_limit_value : null;
-        $moistLimOp = $row->moist_limit_operator ?? null;
-        $moistLimV = $row->moist_limit_value !== null ? (float) $row->moist_limit_value : null;
+        $dirtyVal = $metricKey === 'dirty' ? (float) ($row->dirty_to_sampel ?? 0) : null;
+        $moistVal = $metricKey === 'moist' ? (float) ($row->moist_percent ?? 0) : null;
+        $dirtyLimOp = $metricKey === 'dirty' ? ($row->dirty_limit_operator ?? null) : null;
+        $dirtyLimV = $metricKey === 'dirty' && $row->dirty_limit_value !== null ? (float) $row->dirty_limit_value : null;
+        $moistLimOp = $metricKey === 'moist' ? ($row->moist_limit_operator ?? null) : null;
+        $moistLimV = $metricKey === 'moist' && $row->moist_limit_value !== null ? (float) $row->moist_limit_value : null;
 
         $dirtySymbol = match ($dirtyLimOp) {
             'lt' => '< ',
@@ -107,9 +108,9 @@ class KernelDirtMoistExport implements FromCollection, WithHeadings, WithMapping
             $row->remarks ?? '-',
             (float) ($row->berat_sampel ?? 0),
             (float) ($row->berat_dirty ?? 0),
-            round($dirtyVal, 4),
+            $dirtyVal !== null ? round($dirtyVal, 4) : '-',
             $dirtyLimit,
-            round($moistVal, 4),
+            $moistVal !== null ? round($moistVal, 4) : '-',
             $moistLimit,
         ];
     }

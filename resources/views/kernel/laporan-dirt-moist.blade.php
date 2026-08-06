@@ -271,10 +271,11 @@
                             if ((int) $productionDate->format('H') < 7) {
                                 $productionDate->subDay();
                             }
-                            $dirtyValue = (float) ($row->dirty_to_sampel ?? 0);
-                            $moistValue = (float) ($row->moist_percent ?? 0);
-                            $dirtyLimitOperator = $row->dirty_limit_operator ?? 'le';
-                            $dirtyLimitValue = $row->dirty_limit_value !== null ? (float) $row->dirty_limit_value : null;
+                            $metricKey = str_starts_with(strtoupper($row->kode ?? ''), 'OUT') ? 'moist' : 'dirty';
+                            $dirtyValue = $metricKey === 'dirty' ? (float) ($row->dirty_to_sampel ?? 0) : null;
+                            $moistValue = $metricKey === 'moist' ? (float) ($row->moist_percent ?? 0) : null;
+                            $dirtyLimitOperator = $metricKey === 'dirty' ? ($row->dirty_limit_operator ?? 'le') : null;
+                            $dirtyLimitValue = $metricKey === 'dirty' && $row->dirty_limit_value !== null ? (float) $row->dirty_limit_value : null;
                             $dirtyOk = $dirtyLimitValue !== null
                                 ? match ($dirtyLimitOperator) {
                                     'lt' => $dirtyValue < $dirtyLimitValue,
@@ -283,8 +284,8 @@
                                     default => $dirtyValue <= $dirtyLimitValue,
                                 }
                                 : null;
-                            $moistLimitOperator = $row->moist_limit_operator ?? 'le';
-                            $moistLimitValue = $row->moist_limit_value !== null ? (float) $row->moist_limit_value : null;
+                            $moistLimitOperator = $metricKey === 'moist' ? ($row->moist_limit_operator ?? 'le') : null;
+                            $moistLimitValue = $metricKey === 'moist' && $row->moist_limit_value !== null ? (float) $row->moist_limit_value : null;
                             $moistOk = $moistLimitValue !== null
                                 ? match ($moistLimitOperator) {
                                     'lt' => $moistValue < $moistLimitValue,
@@ -345,10 +346,10 @@
                             <td class="border-r border-gray-100 px-3 py-2.5 text-right font-mono">
                                 {{ number_format((float) ($row->berat_sampel ?? 0), 4) }}</td>
                             <td class="border-r border-teal-200 px-3 py-2.5 text-right font-mono">
-                                {{ number_format((float) ($row->berat_dirty ?? 0), 4) }}</td>
+                                {{ $metricKey === 'dirty' ? number_format((float) ($row->berat_dirty ?? 0), 4) : '-' }}</td>
                             <td class="border-r border-gray-100 px-3 py-2.5 text-center bg-purple-50/40">
                                 @if($dirtyOk === null)
-                                    <span class="dm-na">{{ number_format($dirtyValue, 4) }}%</span>
+                                    <span class="dm-na">{{ $dirtyValue === null ? '-' : number_format($dirtyValue, 4) . '%' }}</span>
                                 @elseif($dirtyOk)
                                     <span class="dm-ok">{{ number_format($dirtyValue, 4) }}%</span>
                                 @else
@@ -365,7 +366,7 @@
                             </td>
                             <td class="border-r border-gray-100 px-3 py-2.5 text-center bg-blue-50/40">
                                 @if($moistOk === null)
-                                    <span class="dm-na">{{ number_format($moistValue, 4) }}%</span>
+                                    <span class="dm-na">{{ $moistValue === null ? '-' : number_format($moistValue, 4) . '%' }}</span>
                                 @elseif($moistOk)
                                     <span class="dm-ok">{{ number_format($moistValue, 4) }}%</span>
                                 @else
@@ -377,7 +378,7 @@
                                     {{ match ($moistLimitOperator) { 'lt' => '<', 'ge' => '>=', 'gt' => '>', default => '<='} }}
                                     {{ number_format($moistLimitValue, 4) }}%
                                 @else
-                                <= 6.0000% @endif </td>
+                                < 6.8000% @endif </td>
                         </tr>
                         {{-- Child detail row (mobile expand) --}}
                         <tr id="dm-detail-{{ $loop->index }}" style="display:none" class="bg-cyan-50/30">
@@ -455,7 +456,7 @@
                                         </p>
                                         <p class="mt-0.5 font-medium text-blue-700">
                                             @if($moistLimitValue !== null){{ match ($moistLimitOperator) { 'lt' => '<', 'ge' => '>=', 'gt' => '>', default => '<='} }}
-                                            {{ number_format($moistLimitValue, 4) }}%@else&lt;= 6.0000%@endif</p>
+                                            {{ number_format($moistLimitValue, 4) }}%@else&lt; 6.8000%@endif</p>
                                     </div>
                                 </div>
                             </td>

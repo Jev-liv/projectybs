@@ -163,6 +163,12 @@
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                     {{ $displayAt->format('d/m/Y H:i') }}
                                 </td>
+                                <td class="px-4 py-3 whitespace-nowrap text-center">
+                                    <span
+                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ ($row->kegiatan_dispek ?? false) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700' }}">
+                                        {{ ($row->kegiatan_dispek ?? false) ? 'Ya' : 'Tidak' }}
+                                    </span>
+                                </td>
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                     {{ $row->rounded_time ? $row->rounded_time->format('H:i') : $row->created_at->format('H:i') }}
                                 </td>
@@ -178,12 +184,7 @@
                                         {{ $row->pengulangan ? 'Ya' : 'Tidak' }}
                                     </span>
                                 </td>
-                                <td class="px-4 py-3 whitespace-nowrap text-center">
-                                    <span
-                                        class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold {{ ($row->kegiatan_dispek ?? false) ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-700' }}">
-                                        {{ ($row->kegiatan_dispek ?? false) ? 'Ya' : 'Tidak' }}
-                                    </span>
-                                </td>
+                                
                                 <td class="px-4 py-3 whitespace-nowrap text-sm text-right text-gray-900">
                                     {{ number_format((float) ($row->berat_sampel ?? 0), 2) }}
                                 </td>

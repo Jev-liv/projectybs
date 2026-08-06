@@ -5,7 +5,11 @@
             @csrf
             @method('PUT')
 
-            @php $isInlet = str_starts_with(strtoupper($dirtMoistCalculation->kode ?? ''), 'IN'); @endphp
+            @php
+                $kode = strtoupper($dirtMoistCalculation->kode ?? '');
+                $isInlet = str_starts_with($kode, 'IN');
+                $isOutlet = str_starts_with($kode, 'OUT');
+            @endphp
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label for="kode" class="block text-sm font-medium text-gray-700 mb-2">Kode <span
@@ -88,7 +92,7 @@
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('berat_sampel') border-red-400 bg-red-50 @enderror">
                     @error('berat_sampel')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                 </div>
-                <div>
+                <div data-dm-dirty-field class="{{ $isOutlet ? 'hidden' : '' }}">
                     <label for="berat_dirty" class="block text-sm font-medium text-gray-700 mb-2">Berat Dirty (gram)
                         <span class="text-red-500">*</span></label>
                     <input type="number" step="0.0001" name="berat_dirty" id="berat_dirty"
@@ -96,16 +100,14 @@
                         class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('berat_dirty') border-red-400 bg-red-50 @enderror">
                     @error('berat_dirty')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
                 </div>
-                @if(!$isInlet)
-                    <div class="md:col-span-2">
+                <div class="md:col-span-2 {{ $isOutlet ? '' : 'hidden' }}" data-dm-moist-field>
                         <label for="moist_percent" class="block text-sm font-medium text-gray-700 mb-2">Moist (%) <span
                                 class="text-red-500">*</span></label>
                         <input type="number" step="0.0001" name="moist_percent" id="moist_percent"
                             value="{{ old('moist_percent', $dirtMoistCalculation->moist_percent) }}"
                             class="w-full px-4 py-2 border border-gray-300 rounded-lg text-sm @error('moist_percent') border-red-400 bg-red-50 @enderror">
                         @error('moist_percent')<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
-                    </div>
-                @endif
+                </div>
             </div>
 
             <div class="flex justify-end gap-3 pt-4 border-t border-gray-200">
@@ -141,6 +143,21 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             preventNumberWheel();
+
+            const kodeSelect = document.getElementById('kode');
+            const dirtyField = document.querySelector('[data-dm-dirty-field]');
+            const moistField = document.querySelector('[data-dm-moist-field]');
+
+            function syncDirtMoistFields() {
+                const kode = (kodeSelect?.value || '').toUpperCase();
+                const isOutlet = kode.startsWith('OUT');
+
+                dirtyField?.classList.toggle('hidden', isOutlet);
+                moistField?.classList.toggle('hidden', !isOutlet);
+            }
+
+            kodeSelect?.addEventListener('change', syncDirtMoistFields);
+            syncDirtMoistFields();
         });
     </script>
 </x-layouts.app>

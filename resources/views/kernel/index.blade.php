@@ -305,6 +305,7 @@
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                             {{ $displayAt->format('d/m/Y H:i') }}
                                         </td>
+                                        
                                         <td class="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                                             {{ $calc->rounded_time ? $calc->rounded_time->format('H:i') : $calc->created_at->format('H:i') }}
                                         </td>

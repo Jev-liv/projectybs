@@ -137,8 +137,9 @@
                         @foreach($group['items'] as $item)
                             @php
                                 $kode = $item['kode'];
+                                $isOutlet = str_starts_with(strtoupper($kode), 'OUT');
                             @endphp
-                            <div class="border rounded-lg p-4 bg-white/80 shadow-sm space-y-3 {{ $cardClass }}" data-kernel-row>
+                            <div class="border rounded-lg p-4 bg-white/80 shadow-sm space-y-3 {{ $cardClass }}" data-kernel-row data-kernel-code="{{ $kode }}">
                                 <div class="flex items-center justify-between gap-3">
                                     <h4 class="text-sm font-semibold text-gray-900">{{ $item['label'] }}</h4>
                                     <span class="text-xs px-2 py-0.5 rounded bg-gray-100 text-gray-700">{{ $kode }}</span>
@@ -233,13 +234,15 @@
                                         data-losses="berat-sampel" value="{{ old("rows.$kode.berat_sampel") }}"
                                         placeholder="0.0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
                                 </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-gray-700 mb-1">Berat Dirty (gram)</label>
-                                    <input type="number" step="0.0001" name="rows[{{ $kode }}][berat_dirty]"
-                                        data-losses="berat-dirty" value="{{ old("rows.$kode.berat_dirty") }}"
-                                        placeholder="0.0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
-                                </div>
-                                @if(!$isInlet)
+                                @if(!$isOutlet)
+                                    <div>
+                                        <label class="block text-xs font-medium text-gray-700 mb-1">Berat Dirty (gram)</label>
+                                        <input type="number" step="0.0001" name="rows[{{ $kode }}][berat_dirty]"
+                                            data-losses="berat-dirty" value="{{ old("rows.$kode.berat_dirty") }}"
+                                            placeholder="0.0000" class="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                    </div>
+                                @endif
+                                @if($isOutlet)
                                     <div>
                                         <label class="block text-xs font-medium text-gray-700 mb-1">Moist (%)</label>
                                         <input type="number" step="0.0001" name="rows[{{ $kode }}][moist_percent]"
@@ -317,6 +320,7 @@
         document.addEventListener('DOMContentLoaded', () => {
 
             function calculateLosses(card) {
+                const kode = (card.dataset.kernelCode || '').toUpperCase();
                 const beratSampel = parseFloat(
                     card.querySelector('[data-losses="berat-sampel"]')?.value
                 ) || 0;
@@ -325,11 +329,15 @@
                     card.querySelector('[data-losses="berat-dirty"]')?.value
                 ) || 0;
 
+                const moistInput = card.querySelector('input[name$="[moist_percent]"]');
+                const moistPercent = parseFloat(moistInput?.value) || 0;
+
                 let losses = 0;
 
-                if (beratSampel > 0) {
-                    losses =
-                        (beratDirty / beratSampel) * 100;
+                if (kode.startsWith('OUT')) {
+                    losses = moistPercent;
+                } else if (beratSampel > 0) {
+                    losses = (beratDirty / beratSampel) * 100;
                 }
 
                 card.querySelector('[data-kernel-losses]')

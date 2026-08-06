@@ -12,8 +12,8 @@ class KernelDataSeeder extends Seeder
         $officeData = [
             'YBS' => [
                 // ── Fibre Cyclone ──────────────────────────────────────────────────
-                ['kode' => 'FC1', 'nama_sample' => 'FIBRE CYCLONE1', 'limit_operator' => 'le', 'limit_value' => 1.50],
-                ['kode' => 'FC2', 'nama_sample' => 'FIBRE CYCLONE2', 'limit_operator' => 'le', 'limit_value' => 1.50],
+                ['kode' => 'FC1', 'nama_sample' => 'FIBRE CYCLONE1', 'limit_operator' => 'le', 'limit_value' => 1.30],
+                ['kode' => 'FC2', 'nama_sample' => 'FIBRE CYCLONE2', 'limit_operator' => 'le', 'limit_value' => 1.30],
 
                 // ── LTDS ───────────────────────────────────────────────────────────
                 ['kode' => 'L1', 'nama_sample' => 'LTDS 1', 'limit_operator' => 'le', 'limit_value' => 1.000],
@@ -27,18 +27,18 @@ class KernelDataSeeder extends Seeder
                 ['kode' => 'CWS3', 'nama_sample' => 'CLAYBATH WET SHELL 3', 'limit_operator' => 'le', 'limit_value' => 1.000],
 
                 // ── Inlet Kernel Silo ──────────────────────────────────────────────
-                ['kode' => 'IN1', 'nama_sample' => 'INLET KERNEL SILO 1', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'IN2', 'nama_sample' => 'INLET KERNEL SILO 2', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'IN3', 'nama_sample' => 'INLET KERNEL SILO 3', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'IN4', 'nama_sample' => 'INLET KERNEL SILO 4', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'IN5', 'nama_sample' => 'INLET KERNEL SILO 5', 'limit_operator' => 'le', 'limit_value' => 8.000],
+                ['kode' => 'IN1', 'nama_sample' => 'INLET KERNEL SILO 1', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN2', 'nama_sample' => 'INLET KERNEL SILO 2', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN3', 'nama_sample' => 'INLET KERNEL SILO 3', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN4', 'nama_sample' => 'INLET KERNEL SILO 4', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN5', 'nama_sample' => 'INLET KERNEL SILO 5', 'limit_operator' => 'lt', 'limit_value' => 6.800],
 
                 // ── Outlet Kernel Silo ─────────────────────────────────────────────
-                ['kode' => 'OUT1', 'nama_sample' => 'OUTLET KERNEL SILO 1 TO BUNKER', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'OUT2', 'nama_sample' => 'OUTLET KERNEL SILO 2 TO BUNKER', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'OUT3', 'nama_sample' => 'OUTLET KERNEL SILO 3 TO BUNKER', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'OUT4', 'nama_sample' => 'OUTLET KERNEL SILO 4 TO BUNKER', 'limit_operator' => 'le', 'limit_value' => 8.000],
-                ['kode' => 'OUT5', 'nama_sample' => 'OUTLET KERNEL SILO 5 TO BUNKER', 'limit_operator' => 'le', 'limit_value' => 8.000],
+                ['kode' => 'OUT1', 'nama_sample' => 'OUTLET KERNEL SILO 1 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT2', 'nama_sample' => 'OUTLET KERNEL SILO 2 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT3', 'nama_sample' => 'OUTLET KERNEL SILO 3 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT4', 'nama_sample' => 'OUTLET KERNEL SILO 4 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT5', 'nama_sample' => 'OUTLET KERNEL SILO 5 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
 
                 // ── Press ──────────────────────────────────────────────────────────
                 ['kode' => 'P1', 'nama_sample' => 'PRESS 1', 'limit_operator' => 'le', 'limit_value' => 15.000],
@@ -67,8 +67,8 @@ class KernelDataSeeder extends Seeder
             // TODO: fill SUN-specific machine/limit rows here when finalized.
             'SUN' => [
                 // ── Fibre Cyclone ──────────────────────────────────────────────────
-                ['kode' => 'FC1', 'nama_sample' => 'FIBRE CYCLONE1', 'limit_operator' => 'le', 'limit_value' => 1.450],
-                ['kode' => 'FC2', 'nama_sample' => 'FIBRE CYCLONE2', 'limit_operator' => 'le', 'limit_value' => 1.450],
+                ['kode' => 'FC1', 'nama_sample' => 'FIBRE CYCLONE1', 'limit_operator' => 'le', 'limit_value' => 1.30],
+                ['kode' => 'FC2', 'nama_sample' => 'FIBRE CYCLONE2', 'limit_operator' => 'le', 'limit_value' => 1.30],
 
                 // ── LTDS ───────────────────────────────────────────────────────────
                 ['kode' => 'L1', 'nama_sample' => 'LTDS 1', 'limit_operator' => 'le', 'limit_value' => 1.000],
@@ -81,16 +81,16 @@ class KernelDataSeeder extends Seeder
                 ['kode' => 'CWS2', 'nama_sample' => 'CLAYBATH WET SHELL 2', 'limit_operator' => 'le', 'limit_value' => 1.000],
 
                 // ── Inlet Kernel Silo ──────────────────────────────────────────────
-                ['kode' => 'IN1', 'nama_sample' => 'INLET KERNEL SILO 1', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'IN2', 'nama_sample' => 'INLET KERNEL SILO 2', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'IN3', 'nama_sample' => 'INLET KERNEL SILO 3', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'IN4', 'nama_sample' => 'INLET KERNEL SILO 4', 'limit_operator' => 'lt', 'limit_value' => 8.000],
+                ['kode' => 'IN1', 'nama_sample' => 'INLET KERNEL SILO 1', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN2', 'nama_sample' => 'INLET KERNEL SILO 2', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN3', 'nama_sample' => 'INLET KERNEL SILO 3', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'IN4', 'nama_sample' => 'INLET KERNEL SILO 4', 'limit_operator' => 'lt', 'limit_value' => 6.800],
 
                 // ── Outlet Kernel Silo ─────────────────────────────────────────────
-                ['kode' => 'OUT1', 'nama_sample' => 'OUTLET KERNEL SILO 1 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'OUT2', 'nama_sample' => 'OUTLET KERNEL SILO 2 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'OUT3', 'nama_sample' => 'OUTLET KERNEL SILO 3 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 8.000],
-                ['kode' => 'OUT4', 'nama_sample' => 'OUTLET KERNEL SILO 4 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 8.000],
+                ['kode' => 'OUT1', 'nama_sample' => 'OUTLET KERNEL SILO 1 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT2', 'nama_sample' => 'OUTLET KERNEL SILO 2 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT3', 'nama_sample' => 'OUTLET KERNEL SILO 3 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
+                ['kode' => 'OUT4', 'nama_sample' => 'OUTLET KERNEL SILO 4 TO BUNKER', 'limit_operator' => 'lt', 'limit_value' => 6.800],
 
                 // ── Press ──────────────────────────────────────────────────────────
                 ['kode' => 'P1', 'nama_sample' => 'PRESS 1', 'limit_operator' => 'le', 'limit_value' => 15.000],
