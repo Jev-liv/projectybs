@@ -23,6 +23,7 @@ use App\Models\KernelRecord;
 use App\Traits\LogsActivity;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -113,29 +114,48 @@ class KernelController extends Controller
 
     public function boilerSoftenerIndex(Request $request)
     {
+        return $this->boilerSoftenerBoilerIndex($request);
+    }
+
+    public function boilerSoftenerBoilerIndex(Request $request)
+    {
         $startDate = $request->input('start_date', now()->format('Y-m-d'));
         $endDate = $request->input('end_date', now()->format('Y-m-d'));
         $officeFilter = $this->resolveOfficeFilter($request);
-        $query = KernelBoilerSoftenerCalculation::with('user')->orderByDesc('rounded_time')->orderByDesc('created_at');
-        $this->applySampleDateRange($query, $startDate, $endDate);
-        $this->applyOfficeFilter($query, $officeFilter);
-        $query->when($request->filled('jenis'), fn($q) => $q->where('jenis', $request->jenis));
-        $query->when($request->filled('parameter'), fn($q) => $q->where('parameter', $request->parameter));
-        if (!Auth::user()->can('view kernel losses')) {
-            $query->where('user_id', Auth::id());
-        }
 
-        $totalRows = (clone $query)->count();
-        $todayRows = KernelBoilerSoftenerCalculation::whereDate('created_at', today())
-            ->when($officeFilter !== 'all', fn($q) => $q->where('office', $officeFilter))->count();
+        $records = $this->getBoilerSoftenerQuery('boiler', $startDate, $endDate, $officeFilter)->get();
+        $displayRows = $this->buildBoilerSoftenerBoilerRows($records);
+        $paginator = $this->paginateBoilerSoftenerRows($displayRows, $request);
+        $totalRows = count($displayRows);
+        $todayRows = collect($displayRows)->filter(fn($row) => ($row['tanggal_key'] ?? null) === today()->toDateString())->count();
 
         return view('kernel.boiler-softener.index', [
-            'boilerSoftenerCalculations' => $query->paginate(15)->withQueryString(),
+            'boilerSoftenerCalculations' => $paginator,
             'statistics' => ['total_records' => $totalRows, 'records_today' => $todayRows, 'calculations_count' => $totalRows],
             'startDate' => $startDate,
             'endDate' => $endDate,
             'officeFilter' => $officeFilter,
-            'parameterOptions' => $this->getBoilerSoftenerParameterOptions(),
+        ]);
+    }
+
+    public function boilerSoftenerSoftenerIndex(Request $request)
+    {
+        $startDate = $request->input('start_date', now()->format('Y-m-d'));
+        $endDate = $request->input('end_date', now()->format('Y-m-d'));
+        $officeFilter = $this->resolveOfficeFilter($request);
+
+        $records = $this->getBoilerSoftenerQuery('softener', $startDate, $endDate, $officeFilter)->get();
+        $displayRows = $this->buildBoilerSoftenerSoftenerRows($records);
+        $paginator = $this->paginateBoilerSoftenerRows($displayRows, $request);
+        $totalRows = count($displayRows);
+        $todayRows = collect($displayRows)->filter(fn($row) => ($row['tanggal_key'] ?? null) === today()->toDateString())->count();
+
+        return view('kernel.boiler-softener.softener', [
+            'boilerSoftenerCalculations' => $paginator,
+            'statistics' => ['total_records' => $totalRows, 'records_today' => $todayRows, 'calculations_count' => $totalRows],
+            'startDate' => $startDate,
+            'endDate' => $endDate,
+            'officeFilter' => $officeFilter,
         ]);
     }
 
@@ -146,7 +166,7 @@ class KernelController extends Controller
         }
         $userOffice = $this->getUserOffice();
         return view('kernel.boiler-softener.create', [
-            'operatorOptions' => $this->getOperatorOptionsByOffice($userOffice, 'boiler_softener'),
+            'operatorOptions' => $this->getOperatorOptionsByOffice($userOffice, 'kernel'),
             'sampleBoyOptions' => $this->getSampleBoyOptionsByOffice($userOffice),
             'parameterOptions' => $this->getBoilerSoftenerParameterOptions(),
         ]);
@@ -165,7 +185,7 @@ class KernelController extends Controller
         $parameterOptions = $this->getBoilerSoftenerParameterOptions();
         $validated = $request->validate([
             'tanggal_sampel' => 'nullable|date|before_or_equal:today',
-            'rounded_time' => 'required|date_format:H:i',
+            'rounded_time' => 'nullable|date_format:H:i',
             'rows' => 'required|array',
             'rows.*.jenis' => ['required', Rule::in(['boiler', 'softener'])],
             'rows.*.parameter' => ['required', Rule::in(array_keys($parameterOptions))],
@@ -173,6 +193,8 @@ class KernelController extends Controller
             'rows.*.satuan' => 'nullable|string|max:30',
             'rows.*.operator' => 'nullable|string|max:255',
             'rows.*.sampel_boy' => 'nullable|string|max:255',
+            'rows.*.tanggal_sampel' => 'nullable|date|before_or_equal:today',
+            'rows.*.rounded_time' => 'nullable|date_format:H:i',
             'rows.*.pengulangan' => 'nullable|boolean',
             'rows.*.remarks' => 'nullable|string|max:500',
         ]);
@@ -183,12 +205,17 @@ class KernelController extends Controller
         }
 
         $sampleTimestamp = $this->resolveKernelSampleTimestamp($validated['tanggal_sampel'] ?? null, $validated['rounded_time'], true);
-        $savedRows = DB::transaction(function () use ($rows, $userOffice, $sampleTimestamp, $parameterOptions) {
-            return $rows->map(function (array $row) use ($userOffice, $sampleTimestamp, $parameterOptions) {
+        $savedRows = DB::transaction(function () use ($rows, $userOffice, $sampleTimestamp, $parameterOptions, $validated) {
+            return $rows->map(function (array $row) use ($userOffice, $sampleTimestamp, $parameterOptions, $validated) {
+                $rowTimestamp = $this->resolveKernelSampleTimestamp(
+                    $row['tanggal_sampel'] ?? ($validated['tanggal_sampel'] ?? null),
+                    $row['rounded_time'] ?? ($validated['rounded_time'] ?? null),
+                    true
+                );
                 $record = KernelBoilerSoftenerCalculation::create([
                     'user_id' => Auth::id(),
                     'office' => $userOffice,
-                    'rounded_time' => $sampleTimestamp,
+                    'rounded_time' => $rowTimestamp ?? $sampleTimestamp,
                     'jenis' => $row['jenis'],
                     'parameter' => $row['parameter'],
                     'nilai' => $row['nilai'],
@@ -2895,10 +2922,272 @@ class KernelController extends Controller
     private function getBoilerSoftenerParameterOptions(): array
     {
         return [
-            'ph' => ['label' => 'pH', 'satuan' => 'pH', 'jenis' => ['boiler', 'softener']],
-            'tds' => ['label' => 'TDS', 'satuan' => 'ppm', 'jenis' => ['boiler', 'softener']],
-            'hardness' => ['label' => 'Hardness', 'satuan' => 'ppm', 'jenis' => ['softener']],
+            'boiler_1_ph' => ['label' => 'Boiler 1 - pH', 'satuan' => 'pH', 'jenis' => ['boiler']],
+            'boiler_1_tds' => ['label' => 'Boiler 1 - TDS', 'satuan' => 'ppm', 'jenis' => ['boiler']],
+            'boiler_1_v_titrasi' => ['label' => 'Boiler 1 - V Titrasi', 'satuan' => 'mL', 'jenis' => ['boiler']],
+            'boiler_1_silica' => ['label' => 'Boiler 1 - Silica', 'satuan' => 'ppm', 'jenis' => ['boiler']],
+            'boiler_1_v_titrasi_chloride' => ['label' => 'Boiler 1 - V Titrasi Chloride', 'satuan' => 'mL', 'jenis' => ['boiler']],
+            'boiler_1_total_v_titrasi_p_alkalinity' => ['label' => 'Boiler 1 - Total V Titrasi P Alkalinity', 'satuan' => 'mL', 'jenis' => ['boiler']],
+            'boiler_1_iron_fe' => ['label' => 'Boiler 1 - Iron (Fe)', 'satuan' => 'ppm', 'jenis' => ['boiler']],
+            'softener_1_ph' => ['label' => 'Softener 1 - pH', 'satuan' => 'pH', 'jenis' => ['softener']],
+            'softener_1_tds' => ['label' => 'Softener 1 - TDS', 'satuan' => 'ppm', 'jenis' => ['softener']],
+            'softener_1_total_hardness' => ['label' => 'Softener 1 - Total Hardness', 'satuan' => 'ppm', 'jenis' => ['softener']],
+            'softener_2_ph' => ['label' => 'Softener 2 - pH', 'satuan' => 'pH', 'jenis' => ['softener']],
+            'softener_2_tds' => ['label' => 'Softener 2 - TDS', 'satuan' => 'ppm', 'jenis' => ['softener']],
+            'softener_2_total_hardness' => ['label' => 'Softener 2 - Total Hardness', 'satuan' => 'ppm', 'jenis' => ['softener']],
         ];
+    }
+
+    private function getBoilerSoftenerQuery(string $jenis, string $startDate, string $endDate, string $officeFilter)
+    {
+        $query = KernelBoilerSoftenerCalculation::with('user')
+            ->where('jenis', $jenis)
+            ->orderByDesc('rounded_time')
+            ->orderByDesc('created_at');
+
+        $this->applySampleDateRange($query, $startDate, $endDate);
+        $this->applyOfficeFilter($query, $officeFilter);
+
+        if (!Auth::user()->can('view kernel losses')) {
+            $query->where('user_id', Auth::id());
+        }
+
+        return $query;
+    }
+
+    private function buildBoilerSoftenerStatistics(string $jenis, string $startDate, string $officeFilter): array
+    {
+        $records = $this->getBoilerSoftenerQuery($jenis, $startDate, $startDate, $officeFilter)->get();
+
+        if ($jenis === 'boiler') {
+            $displayRows = $this->buildBoilerSoftenerBoilerRows($records);
+        } else {
+            $displayRows = $this->buildBoilerSoftenerSoftenerRows($records);
+        }
+
+        $totalRows = count($displayRows);
+
+        return [
+            'total_records' => $totalRows,
+            'records_today' => $totalRows,
+            'calculations_count' => $totalRows,
+        ];
+    }
+
+    private function buildBoilerSoftenerBoilerRows($records): array
+    {
+        return $this->buildBoilerSoftenerRows($records, 'boiler');
+    }
+
+    private function buildBoilerSoftenerSoftenerRows($records): array
+    {
+        return $this->buildBoilerSoftenerRows($records, 'softener');
+    }
+
+    private function buildBoilerSoftenerRows($records, string $jenis): array
+    {
+        $sortedRecords = collect($records)
+            ->sortByDesc(fn($row) => $this->boilerSoftenerRowTimestamp($row)->getTimestamp())
+            ->values();
+
+        $rows = [];
+
+        foreach ($sortedRecords->groupBy(fn($row) => $this->boilerSoftenerBatchKey($row)) as $batchRows) {
+            $sectionGroups = $batchRows
+                ->groupBy(fn($row) => $this->boilerSoftenerSectionKey((string) $row->parameter))
+                ->filter(fn($sectionRows, $sectionKey) => $sectionKey !== null && $this->boilerSoftenerSectionType($sectionKey) === $jenis)
+                ->sortBy(fn($sectionRows, $sectionKey) => $this->boilerSoftenerSectionOrder((string) $sectionKey));
+
+            foreach ($sectionGroups as $sectionKey => $sectionRows) {
+                $rows[] = $jenis === 'boiler'
+                    ? $this->buildBoilerSoftenerBoilerRow($sectionRows, (string) $sectionKey)
+                    : $this->buildBoilerSoftenerSoftenerRow($sectionRows, (string) $sectionKey);
+            }
+        }
+
+        return $rows;
+    }
+
+    private function buildBoilerSoftenerBoilerRow($sectionRows, string $sectionKey): array
+    {
+        $sectionRows = collect($sectionRows);
+        $firstRow = $sectionRows->first();
+        $timestamp = $this->boilerSoftenerRowTimestamp($firstRow);
+        $values = $sectionRows->keyBy('parameter');
+        $vTitrasi = $this->boilerSoftenerNumericValue($values->get('boiler_1_v_titrasi'));
+        $vTitrasiChloride = $this->boilerSoftenerNumericValue($values->get('boiler_1_v_titrasi_chloride'));
+        $totalVtitrasiPAlkalinity = $this->boilerSoftenerNumericValue($values->get('boiler_1_total_v_titrasi_p_alkalinity'));
+        $pAlkalinity = $vTitrasi !== null ? $vTitrasi * 40 : null;
+        $tAlkalinity = ($pAlkalinity !== null && $totalVtitrasiPAlkalinity !== null)
+            ? (($pAlkalinity + ($totalVtitrasiPAlkalinity - $pAlkalinity)) * 40)
+            : null;
+        $ohAlkalinity = ($pAlkalinity !== null && $tAlkalinity !== null)
+            ? ((2 * $pAlkalinity) - $tAlkalinity)
+            : null;
+
+        return [
+            'sort_time' => $timestamp->getTimestamp(),
+            'sort_section' => $this->boilerSoftenerSectionOrder($sectionKey),
+            'tanggal_key' => $timestamp->toDateString(),
+            'tanggal_input' => $timestamp->format('d/m/Y'),
+            'jam_proses' => $timestamp->format('H:i'),
+            'kode' => $this->boilerSoftenerSectionCode($sectionKey),
+            'nama_sample' => $this->boilerSoftenerSectionLabel($sectionKey),
+            'jenis' => 'BOILER',
+            'operator' => $firstRow->operator ?? '-',
+            'sampel_boy' => $firstRow->sampel_boy ?? '-',
+            'ph' => $this->boilerSoftenerNumericValue($values->get('boiler_1_ph')),
+            'tds' => $this->boilerSoftenerNumericValue($values->get('boiler_1_tds')),
+            'v_titrasi' => $vTitrasi,
+            'total_hardness' => $vTitrasi !== null ? $vTitrasi * 20 : null,
+            'sulfite' => $vTitrasi !== null ? $vTitrasi * 15.875 : null,
+            'silica' => $this->boilerSoftenerNumericValue($values->get('boiler_1_silica')),
+            'v_titrasi_cloride' => $vTitrasiChloride,
+            'cloride' => $vTitrasiChloride !== null ? $vTitrasiChloride * 40 : null,
+            'p_alkalinity' => $pAlkalinity,
+            'total_v_titrasi_p_alkalinity' => $totalVtitrasiPAlkalinity,
+            't_alkalinity' => $tAlkalinity,
+            'oh_alkalinity' => $ohAlkalinity,
+            'iron_fe' => $this->boilerSoftenerNumericValue($values->get('boiler_1_iron_fe')),
+            'remarks' => $this->boilerSoftenerFirstFilled($sectionRows->pluck('remarks')->all()),
+        ];
+    }
+
+    private function buildBoilerSoftenerSoftenerRow($sectionRows, string $sectionKey): array
+    {
+        $sectionRows = collect($sectionRows);
+        $firstRow = $sectionRows->first();
+        $timestamp = $this->boilerSoftenerRowTimestamp($firstRow);
+        $values = $sectionRows->keyBy('parameter');
+
+        return [
+            'sort_time' => $timestamp->getTimestamp(),
+            'sort_section' => $this->boilerSoftenerSectionOrder($sectionKey),
+            'tanggal_key' => $timestamp->toDateString(),
+            'tanggal_input' => $timestamp->format('d/m/Y'),
+            'jam_proses' => $timestamp->format('H:i'),
+            'kode' => $this->boilerSoftenerSectionCode($sectionKey),
+            'nama_sample' => $this->boilerSoftenerSectionLabel($sectionKey),
+            'jenis' => 'SOFTENER',
+            'operator' => $firstRow->operator ?? '-',
+            'sampel_boy' => $firstRow->sampel_boy ?? '-',
+            'no_softener' => $this->boilerSoftenerSectionOrder($sectionKey),
+            'ph' => $this->boilerSoftenerNumericValue($values->get(strtolower($sectionKey) . '_ph')),
+            'tds' => $this->boilerSoftenerNumericValue($values->get(strtolower($sectionKey) . '_tds')),
+            'total_hardness' => $this->boilerSoftenerNumericValue($values->get(strtolower($sectionKey) . '_total_hardness')),
+            'remarks' => $this->boilerSoftenerFirstFilled($sectionRows->pluck('remarks')->all()),
+        ];
+    }
+
+    private function paginateBoilerSoftenerRows(array $rows, Request $request, int $perPage = 15): LengthAwarePaginator
+    {
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $items = collect($rows)->forPage($page, $perPage)->values();
+
+        return new LengthAwarePaginator($items, count($rows), $perPage, $page, [
+            'path' => $request->url(),
+            'query' => $request->query(),
+        ]);
+    }
+
+    private function boilerSoftenerRowTimestamp($row): Carbon
+    {
+        if ($row?->rounded_time instanceof Carbon) {
+            return $row->rounded_time->copy();
+        }
+
+        if ($row?->rounded_time) {
+            return Carbon::parse((string) $row->rounded_time);
+        }
+
+        if ($row?->created_at instanceof Carbon) {
+            return $row->created_at->copy();
+        }
+
+        return Carbon::parse((string) ($row?->created_at ?? now()));
+    }
+
+    private function boilerSoftenerBatchKey($row): string
+    {
+        return implode('|', [
+            $this->boilerSoftenerRowTimestamp($row)->format('Y-m-d H:i:s'),
+            strtoupper((string) ($row?->office ?? '')),
+            trim((string) ($row?->operator ?? '')),
+            trim((string) ($row?->sampel_boy ?? '')),
+        ]);
+    }
+
+    private function boilerSoftenerSectionKey(string $parameter): ?string
+    {
+        if (preg_match('/^(boiler|softener)_([0-9]+)_/', $parameter, $matches)) {
+            return $matches[1] . '_' . $matches[2];
+        }
+
+        return null;
+    }
+
+    private function boilerSoftenerSectionType(string $sectionKey): ?string
+    {
+        if (str_starts_with($sectionKey, 'boiler_')) {
+            return 'boiler';
+        }
+
+        if (str_starts_with($sectionKey, 'softener_')) {
+            return 'softener';
+        }
+
+        return null;
+    }
+
+    private function boilerSoftenerSectionOrder(string $sectionKey): int
+    {
+        if (preg_match('/^[a-z]+_([0-9]+)$/', $sectionKey, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return 0;
+    }
+
+    private function boilerSoftenerSectionLabel(string $sectionKey): string
+    {
+        $type = $this->boilerSoftenerSectionType($sectionKey);
+        $order = $this->boilerSoftenerSectionOrder($sectionKey);
+
+        return $type && $order > 0
+            ? ucfirst($type) . ' ' . $order
+            : strtoupper(str_replace('_', ' ', $sectionKey));
+    }
+
+    private function boilerSoftenerSectionCode(string $sectionKey): string
+    {
+        $type = $this->boilerSoftenerSectionType($sectionKey);
+        $order = $this->boilerSoftenerSectionOrder($sectionKey);
+
+        return match ($type) {
+            'boiler' => 'B' . $order,
+            'softener' => 'SF' . $order,
+            default => strtoupper(str_replace('_', '', $sectionKey)),
+        };
+    }
+
+    private function boilerSoftenerNumericValue($row): ?float
+    {
+        if (!$row) {
+            return null;
+        }
+
+        return $row->nilai !== null ? (float) $row->nilai : null;
+    }
+
+    private function boilerSoftenerFirstFilled(array $values): ?string
+    {
+        foreach ($values as $value) {
+            if ($this->hasAnyValue($value)) {
+                return (string) $value;
+            }
+        }
+
+        return null;
     }
 
     private function getDirtMoistFormGroups(array $kodeOptions, ?string $office = null): array

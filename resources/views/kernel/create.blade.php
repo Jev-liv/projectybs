@@ -382,7 +382,7 @@
                 }
 
                 card.querySelector('[data-kernel-losses]')
-                    .textContent = losses.toFixed(2);
+                    .textContent = losses.toFixed(6);
             }
 
             document.querySelectorAll('[data-kernel-row]').forEach(card => {

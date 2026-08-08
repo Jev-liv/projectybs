@@ -1,4 +1,4 @@
-<x-layouts.app title="Data Boiler">
+<x-layouts.app title="Data Softener">
     @php
         $totalRecords = $statistics['total_records'] ?? 0;
         $recordsToday = $statistics['records_today'] ?? 0;
@@ -7,14 +7,14 @@
 
     <div class="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
         <div>
-            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-indigo-500">Boiler</p>
-            <h1 class="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Data Boiler</h1>
-            <p class="mt-2 text-sm text-slate-600">Menampilkan data Boiler 1 beserta hasil perhitungannya.</p>
+            <p class="text-xs font-semibold uppercase tracking-[0.2em] text-sky-500">Softener</p>
+            <h1 class="mt-1 text-2xl font-bold text-slate-900 md:text-3xl">Data Softener</h1>
+            <p class="mt-2 text-sm text-slate-600">Menampilkan data Softener 1 dan Softener 2 beserta nilai utamanya.</p>
         </div>
     </div>
 
     <div class="grid grid-cols-1 gap-3 mb-4 md:grid-cols-2 lg:grid-cols-4 md:gap-4 md:mb-6">
-        <div class="rounded-lg border-l-4 border-indigo-500 bg-white p-4 shadow">
+        <div class="rounded-lg border-l-4 border-sky-500 bg-white p-4 shadow">
             <p class="text-xs font-medium text-gray-500">Total Records</p>
             <p class="mt-1 text-2xl font-bold text-gray-800">{{ $totalRecords }}</p>
         </div>
@@ -32,9 +32,9 @@
         </div>
     </div>
 
-    <x-ui.card title="Data Boiler">
+    <x-ui.card title="Data Softener">
         <div class="mb-4 flex flex-col gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3 md:flex-row md:items-end md:gap-4 md:p-4">
-            <form method="GET" action="{{ route('kernel.boiler-softener.boiler.index') }}" class="flex w-full flex-col gap-3 md:flex-row md:items-end md:gap-4">
+            <form method="GET" action="{{ route('kernel.boiler-softener.softener.index') }}" class="flex w-full flex-col gap-3 md:flex-row md:items-end md:gap-4">
                 <div class="w-full flex-1">
                     <label for="start_date" class="mb-1 block text-xs font-medium text-gray-700">Tanggal Mulai</label>
                     <input type="date" id="start_date" name="start_date" value="{{ $startDate }}" max="{{ now()->toDateString() }}" class="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-transparent focus:ring-2 focus:ring-indigo-500">
@@ -65,7 +65,7 @@
                     </button>
 
                     @if(request('start_date') || request('end_date') || request('office'))
-                        <a href="{{ route('kernel.boiler-softener.boiler.index') }}" class="inline-flex items-center justify-center rounded-lg bg-gray-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-600 md:px-6">
+                        <a href="{{ route('kernel.boiler-softener.softener.index') }}" class="inline-flex items-center justify-center rounded-lg bg-gray-500 px-4 py-2 text-sm font-medium text-white transition hover:bg-gray-600 md:px-6">
                             Reset
                         </a>
                     @endif
@@ -85,7 +85,7 @@
 
         @if($boilerSoftenerCalculations->isEmpty())
             <div class="py-12 text-center">
-                <p class="text-base text-gray-500">Belum ada data Boiler.</p>
+                <p class="text-base text-gray-500">Belum ada data Softener.</p>
                 @can('create kernel losses')
                     <a href="{{ route('kernel.boiler-softener.create') }}" class="mt-4 inline-block rounded-lg bg-indigo-600 px-6 py-2 text-white hover:bg-indigo-700">Input Data Pertama</a>
                 @endcan
@@ -102,19 +102,10 @@
                             <th class="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Jenis</th>
                             <th class="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Operator</th>
                             <th class="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Sampel Boy</th>
+                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">No Softener</th>
                             <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">pH</th>
                             <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">TDS</th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">V Titrasi</th>
-                            <th class="whitespace-nowrap bg-purple-100 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-purple-700">Total Hardness<br><span class="normal-case text-[10px]">(V Titrasi * 20)</span></th>
-                            <th class="whitespace-nowrap bg-purple-100 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-purple-700">Sulfite<br><span class="normal-case text-[10px]">(V Titrasi * 15.875)</span></th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">Silica</th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">V Titrasi Cloride</th>
-                            <th class="whitespace-nowrap bg-purple-100 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-purple-700">Cloride<br><span class="normal-case text-[10px]">(V Titrasi Cloride * 40)</span></th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">P Alkalinity<br><span class="normal-case text-[10px]">(V Titrasi * 40)</span></th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">Total V Titrasi P Alkalinity</th>
-                            <th class="whitespace-nowrap bg-orange-50 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-orange-700">T Alkalinity<br><span class="normal-case text-[10px]">((p alkalinity + (total v titrasi p alkalinity - p alkalinity)) * 40)</span></th>
-                            <th class="whitespace-nowrap bg-orange-50 px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-orange-700">OH Alkalinity<br><span class="normal-case text-[10px]">((2 * p alkalinity) - t alkalinity)</span></th>
-                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">Iron FE</th>
+                            <th class="whitespace-nowrap px-4 py-3 text-center text-xs font-medium uppercase tracking-wider text-gray-700">Total Hardness</th>
                             <th class="whitespace-nowrap px-4 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-700">Remarks</th>
                         </tr>
                     </thead>
@@ -125,22 +116,13 @@
                                 <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-900">{{ data_get($row, 'jam_proses', '-') }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-sm font-semibold text-blue-900">{{ data_get($row, 'kode', '-') }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-700">{{ data_get($row, 'nama_sample', '-') }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-900"><span class="rounded-full bg-green-100 px-2 py-1 text-xs font-medium text-green-800">{{ data_get($row, 'jenis', '-') }}</span></td>
+                                <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-900"><span class="rounded-full bg-sky-100 px-2 py-1 text-xs font-medium text-sky-800">{{ data_get($row, 'jenis', '-') }}</span></td>
                                 <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-900">{{ data_get($row, 'operator', '-') }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-sm text-gray-900">{{ data_get($row, 'sampel_boy', '-') }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold text-gray-900">{{ data_get($row, 'ph') !== null ? number_format((float) data_get($row, 'ph'), 2) : '-' }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold text-gray-900">{{ data_get($row, 'no_softener', '-') }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'ph') !== null ? number_format((float) data_get($row, 'ph'), 2) : '-' }}</td>
                                 <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'tds') !== null ? number_format((float) data_get($row, 'tds'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'v_titrasi') !== null ? number_format((float) data_get($row, 'v_titrasi'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap bg-purple-50 px-4 py-3 text-center text-sm font-semibold text-purple-900">{{ data_get($row, 'total_hardness') !== null ? number_format((float) data_get($row, 'total_hardness'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap bg-purple-50 px-4 py-3 text-center text-sm font-semibold text-purple-900">{{ data_get($row, 'sulfite') !== null ? number_format((float) data_get($row, 'sulfite'), 3) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'silica') !== null ? number_format((float) data_get($row, 'silica'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'v_titrasi_cloride') !== null ? number_format((float) data_get($row, 'v_titrasi_cloride'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap bg-purple-50 px-4 py-3 text-center text-sm font-semibold text-purple-900">{{ data_get($row, 'cloride') !== null ? number_format((float) data_get($row, 'cloride'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'p_alkalinity') !== null ? number_format((float) data_get($row, 'p_alkalinity'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'total_v_titrasi_p_alkalinity') !== null ? number_format((float) data_get($row, 'total_v_titrasi_p_alkalinity'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap bg-orange-50 px-4 py-3 text-center text-sm font-semibold text-orange-700">{{ data_get($row, 't_alkalinity') !== null ? number_format((float) data_get($row, 't_alkalinity'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap bg-orange-50 px-4 py-3 text-center text-sm font-semibold text-orange-700">{{ data_get($row, 'oh_alkalinity') !== null ? number_format((float) data_get($row, 'oh_alkalinity'), 2) : '-' }}</td>
-                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm text-gray-900">{{ data_get($row, 'iron_fe') !== null ? number_format((float) data_get($row, 'iron_fe'), 3) : '-' }}</td>
+                                <td class="whitespace-nowrap px-4 py-3 text-center text-sm font-semibold text-gray-900">{{ data_get($row, 'total_hardness') !== null ? number_format((float) data_get($row, 'total_hardness'), 2) : '-' }}</td>
                                 <td class="px-4 py-3 text-sm text-gray-600">{{ data_get($row, 'remarks', '-') }}</td>
                             </tr>
                         @endforeach

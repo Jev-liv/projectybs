@@ -208,10 +208,16 @@ Setiap menu item dijaga dengan @can agar hanya tampil sesuai hak akses role.
             </p>
 
             @can('view kernel losses')
-                <x-sidebar-item href="{{ route('kernel.boiler-softener.index') }}"
-                    :active="request()->routeIs('kernel.boiler-softener.index')"
+                <x-sidebar-item href="{{ route('kernel.boiler-softener.boiler.index') }}"
+                    :active="request()->routeIs('kernel.boiler-softener.boiler.index')"
                     icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19h16M6 16V8m4 8V5m4 11v-6m4 6V3"/></svg>'>
-                    <span class="sidebar-item-text">Data Boiler &amp; Softener</span>
+                    <span class="sidebar-item-text">Data Boiler</span>
+                </x-sidebar-item>
+
+                <x-sidebar-item href="{{ route('kernel.boiler-softener.softener.index') }}"
+                    :active="request()->routeIs('kernel.boiler-softener.softener.index')"
+                    icon='<svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 19h16M6 16V8m4 8V5m4 11v-6m4 6V3"/></svg>'>
+                    <span class="sidebar-item-text">Data Softener</span>
                 </x-sidebar-item>
             @endcan
 

@@ -133,8 +133,18 @@ Route::middleware('auth')->group(function () {
             ->name('dirt-moist.store')
             ->middleware('permission:create kernel losses');
 
-        Route::get('/boiler-softener', [KernelController::class, 'boilerSoftenerIndex'])
+        Route::get('/boiler-softener', function () {
+            return redirect()->route('kernel.boiler-softener.boiler.index');
+        })
             ->name('boiler-softener.index')
+            ->middleware('permission:view kernel losses');
+
+        Route::get('/boiler-softener/boiler', [KernelController::class, 'boilerSoftenerBoilerIndex'])
+            ->name('boiler-softener.boiler.index')
+            ->middleware('permission:view kernel losses');
+
+        Route::get('/boiler-softener/softener', [KernelController::class, 'boilerSoftenerSoftenerIndex'])
+            ->name('boiler-softener.softener.index')
             ->middleware('permission:view kernel losses');
 
         Route::get('/boiler-softener/create', [KernelController::class, 'boilerSoftenerCreate'])
