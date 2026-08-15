@@ -21,8 +21,7 @@ return [
             "EKA ARDIANSYAH LUBIS ",
             "PANTAS JEKSON LIBERTO TAMPUBOLON ",
             "GANDA SUPRAPTO",
-            "RUDI SAPUTRA",
-            "ARIFANDI BAYU"
+            "RUDI SAPUTRA"
         ],
         'YBS' => [
             'DONI SAPUTRA',
@@ -720,6 +719,7 @@ return [
             "PRANS HARDIANSYAH SIMANJUNTAK ",
             "EKA ARDIANSYAH LUBIS ",
             "PANTAS JEKSON LIBERTO TAMPUBOLON ",
+            "ARIFANDI BAYU"
         ],
         'SJN' => [],
     ],
