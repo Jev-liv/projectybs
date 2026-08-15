@@ -21,7 +21,8 @@ return [
             "EKA ARDIANSYAH LUBIS ",
             "PANTAS JEKSON LIBERTO TAMPUBOLON ",
             "GANDA SUPRAPTO",
-            "RUDI SAPUTRA"
+            "RUDI SAPUTRA",
+            "ARIFANDI BAYU"
         ],
         'YBS' => [
             'DONI SAPUTRA',

@@ -204,7 +204,7 @@ class KernelController extends Controller
             throw ValidationException::withMessages(['rows' => 'Silakan isi minimal satu data Boiler & Softener.']);
         }
 
-        $sampleTimestamp = $this->resolveKernelSampleTimestamp($validated['tanggal_sampel'] ?? null, $validated['rounded_time'], true);
+        $sampleTimestamp = $this->resolveKernelSampleTimestamp($validated['tanggal_sampel'] ?? null, $validated['rounded_time'] ?? null, true);
         $savedRows = DB::transaction(function () use ($rows, $userOffice, $sampleTimestamp, $parameterOptions, $validated) {
             return $rows->map(function (array $row) use ($userOffice, $sampleTimestamp, $parameterOptions, $validated) {
                 $rowTimestamp = $this->resolveKernelSampleTimestamp(
