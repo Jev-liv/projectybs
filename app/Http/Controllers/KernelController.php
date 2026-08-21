@@ -20,6 +20,7 @@ use App\Models\KernelQwt;
 use App\Models\KernelDestoner;
 use App\Models\KernelRippleMill;
 use App\Models\KernelRecord;
+use App\Models\User;
 use App\Traits\LogsActivity;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -3807,7 +3808,12 @@ class KernelController extends Controller
             return [];
         }
 
-        return config('operator-options.' . $module . '.' . $office, []);
+        $operatorOptions = config('operator-options.' . $module . '.' . $office, []);
+        $sampleBoyNames = $this->getSampleBoyUserNamesByOffice($office, 'Sampel Boy Kernel Losses');
+
+        return array_values(array_filter($operatorOptions, function (string $name) use ($sampleBoyNames): bool {
+            return !in_array(strtolower(trim($name)), $sampleBoyNames, true);
+        }));
     }
 
     private function getSampleBoyOptionsByOffice(?string $office): array
@@ -3818,7 +3824,22 @@ class KernelController extends Controller
 
         $officeCode = strtoupper(trim((string) $office));
 
-        return config('operator-options.sample_boy.' . $officeCode, []);
+        return array_values(array_unique(array_merge(
+            config('operator-options.sample_boy.' . $officeCode, []),
+            User::role('Sampel Boy Kernel Losses')
+                ->where('office', $officeCode)
+                ->pluck('name')
+                ->all()
+        )));
+    }
+
+    private function getSampleBoyUserNamesByOffice(string $office, string $role): array
+    {
+        return User::role($role)
+            ->where('office', strtoupper(trim($office)))
+            ->pluck('name')
+            ->map(fn (string $name): string => strtolower(trim($name)))
+            ->all();
     }
 
     private function getOperatorValidationRules(?string $office, bool $required = false, string $module = 'kernel'): array

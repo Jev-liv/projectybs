@@ -6751,7 +6751,21 @@ class ProcessController extends Controller
             $office = 'YBS';
         }
 
-        return config('operator-options.' . $module . '.' . $office, []);
+        $operatorOptions = config('operator-options.' . $module . '.' . $office, []);
+
+        if ($module !== 'oil') {
+            return $operatorOptions;
+        }
+
+        $sampleBoyNames = User::role('Sampel Boy Oil Losses')
+            ->where('office', $office)
+            ->pluck('name')
+            ->map(fn (string $name): string => strtolower(trim($name)))
+            ->all();
+
+        return array_values(array_filter($operatorOptions, function (string $name) use ($sampleBoyNames): bool {
+            return !in_array(strtolower(trim($name)), $sampleBoyNames, true);
+        }));
     }
 
     private function resolveOilFossOperator(array $operatorOptions = []): string

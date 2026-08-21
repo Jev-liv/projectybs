@@ -7,6 +7,7 @@ use App\Models\OilMasterData;
 use App\Models\OilRecord;
 use App\Models\BobotConfig;
 use App\Models\DailyBobotAverage;
+use App\Models\User;
 use App\Services\OilService;
 use App\Exports\OlwbExport;
 use App\Exports\PerformanceExport;
@@ -1685,7 +1686,12 @@ class OilController extends Controller
             return [];
         }
 
-        return config('operator-options.oil.' . $office, []);
+        $operatorOptions = config('operator-options.oil.' . $office, []);
+        $sampleBoyNames = $this->getSampleBoyUserNamesByOffice($office, 'Sampel Boy Oil Losses');
+
+        return array_values(array_filter($operatorOptions, function (string $name) use ($sampleBoyNames): bool {
+            return !in_array(strtolower(trim($name)), $sampleBoyNames, true);
+        }));
     }
 
     private function getSampleBoyOptionsByOffice(?string $office): array
@@ -1696,7 +1702,22 @@ class OilController extends Controller
 
         $officeCode = strtoupper(trim((string) $office));
 
-        return config('operator-options.sample_boy.' . $officeCode, []);
+        return array_values(array_unique(array_merge(
+            config('operator-options.sample_boy.' . $officeCode, []),
+            User::role('Sampel Boy Oil Losses')
+                ->where('office', $officeCode)
+                ->pluck('name')
+                ->all()
+        )));
+    }
+
+    private function getSampleBoyUserNamesByOffice(string $office, string $role): array
+    {
+        return User::role($role)
+            ->where('office', strtoupper(trim($office)))
+            ->pluck('name')
+            ->map(fn (string $name): string => strtolower(trim($name)))
+            ->all();
     }
 
     /**
